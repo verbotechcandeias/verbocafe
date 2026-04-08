@@ -169,8 +169,24 @@ class ComprasModule {
         
         comprasOrdenadas.forEach(compra => {
             const tr = document.createElement('tr')
+            
+            // CORREÇÃO: Formatar data para exibição sem problemas de fuso
+            let dataExibicao = compra.data_compra
+            if (typeof dataExibicao === 'string') {
+                // Se a data já estiver no formato YYYY-MM-DD, formatar diretamente
+                if (dataExibicao.includes('-') && !dataExibicao.includes('T')) {
+                    const [ano, mes, dia] = dataExibicao.split('-')
+                    dataExibicao = `${dia}/${mes}/${ano}`
+                } else {
+                    // Se tiver timestamp, usar o formatter
+                    dataExibicao = formatters.formatDate(dataExibicao)
+                }
+            } else {
+                dataExibicao = formatters.formatDate(dataExibicao)
+            }
+            
             tr.innerHTML = `
-                <td>${formatters.formatDate(compra.data_compra)}</td>
+                <td>${dataExibicao}</td>
                 <td>${compra.codigo_produto || '-'}</td>
                 <td>${compra.descricao_produto || '-'}</td>
                 <td>${compra.fornecedor || '-'}</td>
@@ -326,13 +342,26 @@ class ComprasModule {
         this.compraSelecionada = this.compras.find(c => c.id === id)
         
         if (this.compraSelecionada) {
-            // Formatar data para o input date (YYYY-MM-DD)
-            const dataCompra = new Date(this.compraSelecionada.data_compra)
-            const ano = dataCompra.getFullYear()
-            const mes = String(dataCompra.getMonth() + 1).padStart(2, '0')
-            const dia = String(dataCompra.getDate()).padStart(2, '0')
+            // CORREÇÃO: Formatar data corretamente sem ajuste de fuso
+            // A data do banco vem como YYYY-MM-DD
+            const dataCompra = this.compraSelecionada.data_compra
             
-            document.getElementById('dataCompra').value = `${ano}-${mes}-${dia}`
+            // Se a data for um objeto Date, converter para string YYYY-MM-DD
+            let dataFormatada = dataCompra
+            if (dataCompra instanceof Date || (typeof dataCompra === 'string' && dataCompra.includes('T'))) {
+                const date = new Date(dataCompra)
+                // Adicionar um dia para compensar o fuso horário
+                date.setDate(date.getDate() + 1)
+                const ano = date.getFullYear()
+                const mes = String(date.getMonth() + 1).padStart(2, '0')
+                const dia = String(date.getDate()).padStart(2, '0')
+                dataFormatada = `${ano}-${mes}-${dia}`
+            } else if (typeof dataCompra === 'string' && dataCompra.includes('-')) {
+                // Se já estiver no formato YYYY-MM-DD, usar diretamente
+                dataFormatada = dataCompra.split('T')[0]
+            }
+            
+            document.getElementById('dataCompra').value = dataFormatada
             document.getElementById('codigoProduto').value = this.compraSelecionada.codigo_produto || ''
             document.getElementById('descricaoProduto').value = this.compraSelecionada.descricao_produto || ''
             document.getElementById('fornecedor').value = this.compraSelecionada.fornecedor || ''
@@ -404,8 +433,15 @@ class ComprasModule {
         const valorCompraInput = document.getElementById('valorCompra')
         const valorCompra = this.obterValorNumerico(valorCompraInput)
         
+        // CORREÇÃO: Obter a data corretamente sem ajuste de fuso horário
+        const dataCompraInput = document.getElementById('dataCompra')
+        let dataCompra = dataCompraInput.value
+        
+        // Garantir que a data seja salva como YYYY-MM-DD sem conversão de fuso
+        // O input date já retorna no formato YYYY-MM-DD
+        
         return {
-            data_compra: document.getElementById('dataCompra').value,
+            data_compra: dataCompra,
             codigo_produto: document.getElementById('codigoProduto').value.trim(),
             descricao_produto: document.getElementById('descricaoProduto').value.trim(),
             fornecedor: document.getElementById('fornecedor').value.trim(),

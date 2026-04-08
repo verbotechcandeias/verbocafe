@@ -2,10 +2,24 @@
 
 export function formatDate(date) {
     if (!date) return ''
+    
+    // Se a data for uma string no formato YYYY-MM-DD
+    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [ano, mes, dia] = date.split('-')
+        return `${dia}/${mes}/${ano}`
+    }
+    
+    // Caso contrário, tratar como objeto Date
     const d = new Date(date)
+    
+    // Verificar se a data é válida
+    if (isNaN(d.getTime())) return ''
+    
+    // Ajustar para o fuso local
     const day = String(d.getDate()).padStart(2, '0')
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const year = d.getFullYear()
+    
     return `${day}/${month}/${year}`
 }
 
