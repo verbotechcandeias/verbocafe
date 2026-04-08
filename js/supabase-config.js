@@ -85,10 +85,18 @@ export const supabaseService = {
     
     // Vendas
     async getVendas() {
+        console.log('Buscando vendas do Supabase...')
         const { data, error } = await supabase
             .from('vendas')
-            .select('*, itens_venda(*)')
+            .select('*')
             .order('data_venda', { ascending: false })
+        
+        if (error) {
+            console.error('Erro Supabase getVendas:', error)
+        } else {
+            console.log('Vendas encontradas:', data?.length || 0)
+        }
+        
         return { data, error }
     },
     
@@ -180,6 +188,14 @@ export const supabaseService = {
             .eq('id', id)
             .select()
         return { data, error }
+    },
+
+    async deleteItemVenda(id) {
+        const { error } = await supabase
+            .from('itens_venda')
+            .delete()
+            .eq('id', id)
+        return { error }
     },
     
     // Auditoria
