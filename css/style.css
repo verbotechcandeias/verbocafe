@@ -945,3 +945,24 @@ img, svg {
         display: none !important;
     }
 }
+
+/* Estilo para campo de data */
+input[type="date"] {
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+/* Para Firefox */
+input[type="date"] {
+    -moz-appearance: textfield;
+}

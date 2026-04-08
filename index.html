@@ -105,7 +105,7 @@
                         <div class="form-grid">
                             <div class="form-group">
                                 <label for="dataCompra">Data da Compra</label>
-                                <input type="text" id="dataCompra" class="form-control" readonly>
+                                <input type="date" id="dataCompra" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label for="codigoProduto">Código do Produto</label>
@@ -128,6 +128,8 @@
                                     <option value="Salgados">Salgados</option>
                                     <option value="Doces">Doces</option>
                                     <!--<option value="Lanches">Lanches</option>-->
+                                    <!--<option value="Insumos">Insumos</option>-->
+                                    <!--<option value="Outros">Outros</option>-->
                                 </select>
                             </div>
                             <div class="form-group">
@@ -136,7 +138,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="valorCompra">Valor de Compra (R$)</label>
-                                <input type="number" id="valorCompra" class="form-control" step="0.01" min="0.01" required>
+                                <input type="text" id="valorCompra" class="form-control" placeholder="0,00" required>
                             </div>
                         </div>
                         <div class="form-actions">
