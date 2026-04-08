@@ -63,9 +63,9 @@
                             <i class="fas fa-chevron-down submenu-arrow"></i>
                         </a>
                         <ul class="submenu">
-                            <li><a href="#" data-page="relatorio-compras">Compras</a></li>
-                            <li><a href="#" data-page="relatorio-vendas">Vendas</a></li>
-                            <li><a href="#" data-page="relatorio-auditoria">Auditoria</a></li>
+                            <li><a href="#" data-page="relatorio-compras">Relatório de Compras</a></li>
+                            <li><a href="#" data-page="relatorio-vendas">Relatório de Vendas</a></li>
+                            <li><a href="#" data-page="relatorio-auditoria">Relatório de Auditoria</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -93,7 +93,7 @@
         </main>
     </div>
 
-    <!-- Templates das Páginas -->
+    <!-- Template Compras -->
     <template id="template-compras">
         <div class="page-content">
             <div class="card">
@@ -123,13 +123,9 @@
                                 <label for="categoria">Categoria</label>
                                 <select id="categoria" class="form-control" required>
                                     <option value="">Selecione...</option>
-                                    <option value="Bebidas Quentes">Bebidas</option>
-                                    <!--<option value="Bebidas Frias">Bebidas Frias</option>-->
+                                    <option value="Bebidas">Bebidas Quentes</option>                                   
                                     <option value="Salgados">Salgados</option>
                                     <option value="Doces">Doces</option>
-                                    <!--<option value="Lanches">Lanches</option>-->
-                                    <!--<option value="Insumos">Insumos</option>-->
-                                    <!--<option value="Outros">Outros</option>-->
                                 </select>
                             </div>
                             <div class="form-group">
@@ -186,6 +182,7 @@
         </div>
     </template>
 
+    <!-- Template Produtos -->
     <template id="template-produtos">
         <div class="page-content">
             <div class="card">
@@ -219,7 +216,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="valorVenda">Valor de Venda (R$)</label>
-                                <input type="text" id="valorVenda" class="form-control" placeholder="0,00" inputmode="numeric">
+                                <input type="text" id="valorVenda" class="form-control" placeholder="0,00" required>
                             </div>
                         </div>
                         <div class="form-actions">
@@ -231,6 +228,9 @@
                             </button>
                             <button type="button" class="btn btn-danger" onclick="produtosModule.excluir()">
                                 <i class="fas fa-trash"></i> Excluir
+                            </button>
+                            <button type="button" class="btn btn-light" onclick="produtosModule.limparForm()">
+                                <i class="fas fa-undo"></i> Limpar
                             </button>
                         </div>
                     </form>
@@ -263,8 +263,10 @@
         </div>
     </template>
 
+    <!-- Template Vendas -->
     <template id="template-vendas">
         <div class="page-content">
+            <!-- Card de Realizar Venda -->
             <div class="card">
                 <div class="card-header">
                     <h2>Realizar Venda</h2>
@@ -313,7 +315,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="descontoVenda">Desconto (R$)</label>
-                                    <input type="text" id="descontoVenda" class="form-control" value="0.00">
+                                    <input type="text" id="descontoVenda" class="form-control" value="0,00">
                                 </div>
                                 <div class="form-group">
                                     <label for="valorTotalVenda">Valor Total (R$)</label>
@@ -326,7 +328,7 @@
                         </div>
                         
                         <div class="itens-venda-section mt-4">
-                            <h3>Itens da Venda</h3>
+                            <h3>Itens da Venda Atual</h3>
                             <div class="table-responsive">
                                 <table class="table modern-table" id="tabelaItensVenda">
                                     <thead>
@@ -365,9 +367,50 @@
                     </form>
                 </div>
             </div>
+            
+            <!-- Card de Vendas do Dia -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h2>
+                        <i class="fas fa-history"></i> 
+                        Vendas do Dia - <span id="dataVendasDia"></span>
+                    </h2>
+                    <button type="button" class="btn btn-light btn-sm" onclick="vendasModule.atualizarListaVendas()" title="Atualizar lista">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table modern-table" id="tabelaVendasDia">
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Nº Venda</th>
+                                    <th>Produto</th>
+                                    <th>Fornecedor</th>
+                                    <th>Categoria</th>
+                                    <th>Qtd</th>
+                                    <th>Valor Venda</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyVendasDia"></tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <td colspan="5"><strong>TOTAL DO DIA</strong></td>
+                                    <td id="totalQuantidadeDia">0</td>
+                                    <td id="totalVendasDia">R$ 0,00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </template>
 
+    <!-- Template Auditoria -->
     <template id="template-auditoria">
         <div class="page-content">
             <div class="card">
@@ -441,9 +484,6 @@
             </div>
         </div>
     </template>
-
-    <!-- Scripts -->
-    <script type="module" src="js/app.js"></script>
 
     <!-- Template Relatório de Compras -->
     <template id="template-relatorio-compras">
@@ -625,5 +665,7 @@
         </div>
     </template>
 
+    <!-- Scripts -->
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

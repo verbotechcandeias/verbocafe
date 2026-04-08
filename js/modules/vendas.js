@@ -8,6 +8,7 @@ class VendasModule {
         this.produtos = []
         this.itensVenda = []
         this.vendaAtual = null
+        this.vendaEditando = null
         this.numeroVenda = this.gerarNumeroVenda()
     }
     
@@ -16,6 +17,8 @@ class VendasModule {
         this.setupEventListeners()
         this.setDataVenda()
         this.setNumeroVenda()
+        this.setDataVendasDia()
+        await this.carregarVendasDoDia()
     }
     
     gerarNumeroVenda() {
@@ -68,15 +71,21 @@ class VendasModule {
             })
         }
         
-        // Calcular valor total automaticamente
         const quantidade = document.getElementById('quantidadeVenda')
         const desconto = document.getElementById('descontoVenda')
-        const valorUnitario = document.getElementById('valorUnitarioVenda')
         
         if (quantidade) {
             quantidade.addEventListener('input', () => {
                 this.calcularValorTotal()
                 this.validarQuantidade()
+            })
+            
+            quantidade.addEventListener('blur', () => {
+                const qtd = parseInt(quantidade.value) || 0
+                if (qtd < 1) {
+                    quantidade.value = 1
+                    this.calcularValorTotal()
+                }
             })
         }
         
@@ -90,6 +99,13 @@ class VendasModule {
                 if (!desconto.value || desconto.value.trim() === '') {
                     desconto.value = '0,00'
                 }
+            })
+        }
+        
+        const form = document.getElementById('formVendas')
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault()
             })
         }
     }
@@ -127,6 +143,20 @@ class VendasModule {
         return isNaN(numero) ? 0 : numero
     }
     
+    parseCurrency(value) {
+        if (!value) return 0
+        if (typeof value === 'number') return value
+        
+        const strValue = String(value)
+            .replace('R$', '')
+            .replace(/\s/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+            .trim()
+        
+        return parseFloat(strValue) || 0
+    }
+    
     onProdutoSelecionado(select) {
         const selectedOption = select.options[select.selectedIndex]
         
@@ -136,21 +166,21 @@ class VendasModule {
             document.getElementById('categoriaVenda').value = selectedOption.dataset.categoria || ''
             
             const valor = parseFloat(selectedOption.dataset.valor) || 0
-            document.getElementById('valorUnitarioVenda').value = formatters.formatCurrency(valor)
+            const valorUnitarioInput = document.getElementById('valorUnitarioVenda')
+            if (valorUnitarioInput) {
+                valorUnitarioInput.value = formatters.formatCurrency(valor)
+            }
             
             const quantidadeInput = document.getElementById('quantidadeVenda')
-            quantidadeInput.max = selectedOption.dataset.estoque || 0
-            quantidadeInput.dataset.estoque = selectedOption.dataset.estoque || 0
+            if (quantidadeInput) {
+                quantidadeInput.max = selectedOption.dataset.estoque || 0
+                quantidadeInput.dataset.estoque = selectedOption.dataset.estoque || 0
+                quantidadeInput.value = 1
+            }
             
             this.calcularValorTotal()
         } else {
-            document.getElementById('codigoVenda').value = ''
-            document.getElementById('fornecedorVenda').value = ''
-            document.getElementById('categoriaVenda').value = ''
-            document.getElementById('valorUnitarioVenda').value = ''
-            document.getElementById('quantidadeVenda').value = ''
-            document.getElementById('descontoVenda').value = '0,00'
-            document.getElementById('valorTotalVenda').value = ''
+            this.limparFormProduto()
         }
     }
     
@@ -170,16 +200,27 @@ class VendasModule {
     
     calcularValorTotal() {
         const quantidade = parseInt(document.getElementById('quantidadeVenda').value) || 0
-        const valorUnitario = formatters.parseCurrency(
-            document.getElementById('valorUnitarioVenda').value
-        )
-        const desconto = this.obterValorNumerico(document.getElementById('descontoVenda'))
         
+        const valorUnitarioInput = document.getElementById('valorUnitarioVenda')
+        let valorUnitario = 0
+        
+        if (valorUnitarioInput && valorUnitarioInput.value) {
+            const valorLimpo = valorUnitarioInput.value
+                .replace('R$', '')
+                .replace(/\s/g, '')
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .trim()
+            valorUnitario = parseFloat(valorLimpo) || 0
+        }
+        
+        const desconto = this.obterValorNumerico(document.getElementById('descontoVenda'))
         const valorTotal = (quantidade * valorUnitario) - desconto
         
-        document.getElementById('valorTotalVenda').value = formatters.formatCurrency(
-            Math.max(0, valorTotal)
-        )
+        const valorTotalInput = document.getElementById('valorTotalVenda')
+        if (valorTotalInput) {
+            valorTotalInput.value = formatters.formatCurrency(Math.max(0, valorTotal))
+        }
     }
     
     setDataVenda() {
@@ -194,6 +235,92 @@ class VendasModule {
         if (numeroInput) {
             numeroInput.value = this.numeroVenda
         }
+    }
+    
+    setDataVendasDia() {
+        const dataSpan = document.getElementById('dataVendasDia')
+        if (dataSpan) {
+            dataSpan.textContent = formatters.formatDate(new Date())
+        }
+    }
+    
+    async carregarVendasDoDia() {
+        try {
+            const { data, error } = await supabaseService.getVendas()
+            
+            if (error) {
+                console.error('Erro ao carregar vendas:', error)
+                return
+            }
+            
+            const hoje = new Date()
+            const dataHoje = hoje.toISOString().split('T')[0]
+            
+            const vendasDoDia = (data || []).filter(venda => {
+                const dataVenda = new Date(venda.data_venda).toISOString().split('T')[0]
+                return dataVenda === dataHoje
+            })
+            
+            this.renderizarVendasDoDia(vendasDoDia)
+        } catch (err) {
+            console.error('Erro ao carregar vendas do dia:', err)
+        }
+    }
+    
+    renderizarVendasDoDia(vendas) {
+        const tbody = document.getElementById('tbodyVendasDia')
+        if (!tbody) return
+        
+        tbody.innerHTML = ''
+        
+        if (vendas.length === 0) {
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td colspan="8" style="text-align: center; padding: 20px; color: #999;">
+                    <i class="fas fa-info-circle"></i> Nenhuma venda realizada hoje
+                </td>
+            `
+            tbody.appendChild(tr)
+            
+            document.getElementById('totalQuantidadeDia').textContent = '0'
+            document.getElementById('totalVendasDia').textContent = formatters.formatCurrency(0)
+            return
+        }
+        
+        let totalQuantidade = 0
+        let totalVendas = 0
+        
+        const vendasOrdenadas = [...vendas].sort((a, b) => 
+            new Date(b.data_venda) - new Date(a.data_venda)
+        )
+        
+        vendasOrdenadas.forEach(venda => {
+            const tr = document.createElement('tr')
+            tr.innerHTML = `
+                <td>${formatters.formatDateTime(venda.data_venda)}</td>
+                <td>${venda.numero_venda || '-'}</td>
+                <td>${venda.descricao_produto || '-'}</td>
+                <td>${venda.fornecedor || '-'}</td>
+                <td>${venda.categoria || '-'}</td>
+                <td>${venda.quantidade || 0}</td>
+                <td>${formatters.formatCurrency(venda.valor_total)}</td>
+                <td>
+                    <button class="btn-icon" onclick="vendasModule.editarVenda('${venda.id}')" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon" onclick="vendasModule.excluirVenda('${venda.id}')" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `
+            tbody.appendChild(tr)
+            
+            totalQuantidade += venda.quantidade || 0
+            totalVendas += parseFloat(venda.valor_total) || 0
+        })
+        
+        document.getElementById('totalQuantidadeDia').textContent = totalQuantidade
+        document.getElementById('totalVendasDia').textContent = formatters.formatCurrency(totalVendas)
     }
     
     adicionarProduto() {
@@ -212,20 +339,27 @@ class VendasModule {
         }
         
         const quantidade = parseInt(document.getElementById('quantidadeVenda').value) || 0
-        const valorUnitario = formatters.parseCurrency(document.getElementById('valorUnitarioVenda').value)
+        const valorUnitario = this.parseCurrency(document.getElementById('valorUnitarioVenda').value)
         const desconto = this.obterValorNumerico(document.getElementById('descontoVenda'))
         const valorTotal = (quantidade * valorUnitario) - desconto
         
-        // Verificar se o produto já está na lista
         const itemExistente = this.itensVenda.find(item => item.produto_id === produtoId)
         if (itemExistente) {
             this.showError('Este produto já foi adicionado à venda')
             return
         }
         
-        // Validar estoque
-        if (quantidade > produto.quantidade) {
-            this.showError(`Quantidade indisponível. Estoque atual: ${produto.quantidade}`)
+        // Verificar estoque considerando edição
+        let quantidadeDisponivel = produto.quantidade
+        if (this.vendaEditando) {
+            const itemOriginal = this.itensVenda.find(i => i.produto_id === produtoId)
+            if (itemOriginal) {
+                quantidadeDisponivel += itemOriginal.quantidade
+            }
+        }
+        
+        if (quantidade > quantidadeDisponivel) {
+            this.showError(`Quantidade indisponível. Estoque atual: ${quantidadeDisponivel}`)
             return
         }
         
@@ -291,14 +425,26 @@ class VendasModule {
     }
     
     limparFormProduto() {
-        document.getElementById('descricaoVenda').value = ''
-        document.getElementById('codigoVenda').value = ''
-        document.getElementById('fornecedorVenda').value = ''
-        document.getElementById('categoriaVenda').value = ''
-        document.getElementById('valorUnitarioVenda').value = ''
-        document.getElementById('quantidadeVenda').value = ''
-        document.getElementById('descontoVenda').value = '0,00'
-        document.getElementById('valorTotalVenda').value = ''
+        const selectProduto = document.getElementById('descricaoVenda')
+        if (selectProduto) selectProduto.value = ''
+        
+        const campos = ['codigoVenda', 'fornecedorVenda', 'categoriaVenda']
+        campos.forEach(id => {
+            const campo = document.getElementById(id)
+            if (campo) campo.value = ''
+        })
+        
+        const valorUnitario = document.getElementById('valorUnitarioVenda')
+        if (valorUnitario) valorUnitario.value = ''
+        
+        const quantidade = document.getElementById('quantidadeVenda')
+        if (quantidade) quantidade.value = ''
+        
+        const desconto = document.getElementById('descontoVenda')
+        if (desconto) desconto.value = '0,00'
+        
+        const valorTotal = document.getElementById('valorTotalVenda')
+        if (valorTotal) valorTotal.value = ''
     }
     
     async realizarVenda() {
@@ -307,66 +453,44 @@ class VendasModule {
             return
         }
         
-        // Validar estoque novamente
+        // Validar estoque
         for (const item of this.itensVenda) {
             const produto = this.produtos.find(p => p.id === item.produto_id)
             if (!produto) {
                 this.showError(`Produto não encontrado: ${item.descricao_produto}`)
                 return
             }
-            if (produto.quantidade < item.quantidade) {
+            
+            let quantidadeOriginal = 0
+            if (this.vendaEditando) {
+                // Buscar quantidade original deste produto na venda
+                const { data: itensOriginais } = await supabaseService.getItensVenda(this.vendaEditando.id)
+                const itemOriginal = itensOriginais?.find(i => i.produto_id === item.produto_id)
+                quantidadeOriginal = itemOriginal?.quantidade || 0
+            }
+            
+            const quantidadeNecessaria = item.quantidade - quantidadeOriginal
+            if (quantidadeNecessaria > 0 && produto.quantidade < quantidadeNecessaria) {
                 this.showError(`Estoque insuficiente para: ${item.descricao_produto}. Disponível: ${produto.quantidade}`)
                 return
             }
         }
         
         try {
-            this.showLoading('Realizando venda...')
+            this.showLoading(this.vendaEditando ? 'Atualizando venda...' : 'Realizando venda...')
             
-            // Criar a venda principal
-            const venda = {
-                data_venda: new Date().toISOString(),
-                numero_venda: this.numeroVenda,
-                codigo_produto: this.itensVenda[0].codigo_produto,
-                descricao_produto: this.itensVenda[0].descricao_produto,
-                fornecedor: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.fornecedor || '',
-                categoria: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.categoria || '',
-                quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
-                valor_unitario: this.itensVenda[0].valor_unitario,
-                desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
-                valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0)
-            }
-            
-            // Salvar venda e itens
-            const { data, error } = await supabaseService.saveVenda(venda, this.itensVenda)
-            
-            if (error) {
-                this.hideLoading()
-                console.error('Erro Supabase:', error)
-                this.showError('Erro ao realizar venda: ' + error.message)
-                return
-            }
-            
-            // Atualizar estoque dos produtos
-            for (const item of this.itensVenda) {
-                const produto = this.produtos.find(p => p.id === item.produto_id)
-                if (produto) {
-                    const novaQuantidade = produto.quantidade - item.quantidade
-                    const { error: updateError } = await supabaseService.updateProduto(produto.id, {
-                        ...produto,
-                        quantidade: novaQuantidade
-                    })
-                    
-                    if (updateError) {
-                        console.error('Erro ao atualizar estoque:', updateError)
-                    }
-                }
+            if (this.vendaEditando) {
+                await this.atualizarVendaExistente()
+            } else {
+                await this.criarNovaVenda()
             }
             
             this.hideLoading()
-            this.showSuccess('Venda realizada com sucesso!')
+            this.showSuccess(this.vendaEditando ? 'Venda atualizada com sucesso!' : 'Venda realizada com sucesso!')
+            
             this.cancelarVenda()
             await this.carregarProdutos()
+            await this.carregarVendasDoDia()
             
         } catch (err) {
             this.hideLoading()
@@ -375,14 +499,219 @@ class VendasModule {
         }
     }
     
+    async criarNovaVenda() {
+        const venda = {
+            data_venda: new Date().toISOString(),
+            numero_venda: this.numeroVenda,
+            codigo_produto: this.itensVenda[0].codigo_produto,
+            descricao_produto: this.itensVenda[0].descricao_produto,
+            fornecedor: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.fornecedor || '',
+            categoria: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.categoria || '',
+            quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
+            valor_unitario: this.itensVenda[0].valor_unitario,
+            desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
+            valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0)
+        }
+        
+        const { error } = await supabaseService.saveVenda(venda, this.itensVenda)
+        
+        if (error) throw error
+        
+        for (const item of this.itensVenda) {
+            const produto = this.produtos.find(p => p.id === item.produto_id)
+            if (produto) {
+                const novaQuantidade = produto.quantidade - item.quantidade
+                await supabaseService.updateProduto(produto.id, {
+                    ...produto,
+                    quantidade: novaQuantidade
+                })
+            }
+        }
+    }
+    
+    async atualizarVendaExistente() {
+        // Devolver itens antigos ao estoque
+        const { data: itensAntigos } = await supabaseService.getItensVenda(this.vendaEditando.id)
+        
+        if (itensAntigos) {
+            for (const item of itensAntigos) {
+                const produto = this.produtos.find(p => p.id === item.produto_id)
+                if (produto) {
+                    const novaQuantidade = produto.quantidade + item.quantidade
+                    await supabaseService.updateProduto(produto.id, {
+                        ...produto,
+                        quantidade: novaQuantidade
+                    })
+                }
+            }
+        }
+        
+        // Atualizar venda
+        const vendaAtualizada = {
+            data_venda: this.vendaEditando.data_venda,
+            numero_venda: this.numeroVenda,
+            codigo_produto: this.itensVenda[0].codigo_produto,
+            descricao_produto: this.itensVenda[0].descricao_produto,
+            fornecedor: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.fornecedor || '',
+            categoria: this.produtos.find(p => p.id === this.itensVenda[0].produto_id)?.categoria || '',
+            quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
+            valor_unitario: this.itensVenda[0].valor_unitario,
+            desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
+            valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0)
+        }
+        
+        await supabaseService.updateVenda(this.vendaEditando.id, vendaAtualizada)
+        
+        // Excluir itens antigos
+        await supabaseService.deleteItensVenda(this.vendaEditando.id)
+        
+        // Inserir novos itens
+        const itensParaInserir = this.itensVenda.map(item => ({
+            ...item,
+            venda_id: this.vendaEditando.id
+        }))
+        
+        const { error } = await supabaseService.saveItensVenda(itensParaInserir)
+        if (error) throw error
+        
+        // Subtrair novos itens do estoque
+        for (const item of this.itensVenda) {
+            const produto = this.produtos.find(p => p.id === item.produto_id)
+            if (produto) {
+                const novaQuantidade = produto.quantidade - item.quantidade
+                await supabaseService.updateProduto(produto.id, {
+                    ...produto,
+                    quantidade: novaQuantidade
+                })
+            }
+        }
+    }
+    
+    async editarVenda(id) {
+        try {
+            this.showLoading('Carregando venda...')
+            
+            const { data: vendas, error } = await supabaseService.getVendas()
+            
+            if (error) {
+                this.hideLoading()
+                this.showError('Erro ao carregar venda: ' + error.message)
+                return
+            }
+            
+            const venda = vendas.find(v => v.id === id)
+            if (!venda) {
+                this.hideLoading()
+                this.showError('Venda não encontrada')
+                return
+            }
+            
+            const { data: itens, error: itensError } = await supabaseService.getItensVenda(id)
+            
+            this.hideLoading()
+            
+            if (itensError) {
+                this.showError('Erro ao carregar itens da venda')
+                return
+            }
+            
+            this.vendaEditando = venda
+            this.numeroVenda = venda.numero_venda
+            this.setNumeroVenda()
+            
+            this.itensVenda = (itens || []).map(item => ({
+                produto_id: item.produto_id,
+                codigo_produto: item.codigo_produto,
+                descricao_produto: item.descricao_produto,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                desconto: item.desconto,
+                valor_total: item.valor_total
+            }))
+            
+            this.renderizarItensVenda()
+            this.atualizarTotais()
+            
+            this.showSuccess('Venda carregada para edição')
+            
+            document.querySelector('.card')?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            })
+            
+        } catch (err) {
+            this.hideLoading()
+            console.error('Erro ao editar venda:', err)
+            this.showError('Erro ao carregar venda')
+        }
+    }
+    
+    async excluirVenda(id) {
+        if (!confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) {
+            return
+        }
+        
+        try {
+            this.showLoading('Excluindo venda...')
+            
+            const { data: itens, error: itensError } = await supabaseService.getItensVenda(id)
+            
+            if (!itensError && itens) {
+                for (const item of itens) {
+                    const produto = this.produtos.find(p => p.id === item.produto_id)
+                    if (produto) {
+                        const novaQuantidade = produto.quantidade + item.quantidade
+                        await supabaseService.updateProduto(produto.id, {
+                            ...produto,
+                            quantidade: novaQuantidade
+                        })
+                    }
+                }
+            }
+            
+            await supabaseService.deleteItensVenda(id)
+            const { error } = await supabaseService.deleteVenda(id)
+            
+            this.hideLoading()
+            
+            if (error) {
+                this.showError('Erro ao excluir venda: ' + error.message)
+                return
+            }
+            
+            this.showSuccess('Venda excluída com sucesso!')
+            await this.carregarProdutos()
+            await this.carregarVendasDoDia()
+            
+            if (this.vendaEditando?.id === id) {
+                this.cancelarVenda()
+            }
+            
+        } catch (err) {
+            this.hideLoading()
+            console.error('Erro ao excluir venda:', err)
+            this.showError('Erro ao excluir venda')
+        }
+    }
+    
+    atualizarListaVendas() {
+        this.carregarVendasDoDia()
+        this.showSuccess('Lista atualizada!')
+    }
+    
     cancelarVenda() {
-        if (this.itensVenda.length > 0) {
-            if (!confirm('Tem certeza que deseja cancelar esta venda?')) {
+        if (this.itensVenda.length > 0 || this.vendaEditando) {
+            const mensagem = this.vendaEditando ? 
+                'Cancelar edição da venda?' : 
+                'Cancelar esta venda?'
+            
+            if (!confirm(mensagem)) {
                 return
             }
         }
         
         this.itensVenda = []
+        this.vendaEditando = null
         this.limparFormProduto()
         this.renderizarItensVenda()
         this.atualizarTotais()

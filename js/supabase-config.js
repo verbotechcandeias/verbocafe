@@ -143,6 +143,45 @@ export const supabaseService = {
         }
     },
     
+    // js/supabase-config.js - Adicionar novos métodos
+
+    // Buscar itens de uma venda específica
+    async getItensVenda(vendaId) {
+        const { data, error } = await supabase
+            .from('itens_venda')
+            .select('*')
+            .eq('venda_id', vendaId)
+        return { data, error }
+    },
+
+    // Excluir itens de uma venda
+    async deleteItensVenda(vendaId) {
+        const { error } = await supabase
+            .from('itens_venda')
+            .delete()
+            .eq('venda_id', vendaId)
+        return { error }
+    },
+
+    // Excluir uma venda
+    async deleteVenda(id) {
+        const { error } = await supabase
+            .from('vendas')
+            .delete()
+            .eq('id', id)
+        return { error }
+    },
+
+    // Atualizar uma venda
+    async updateVenda(id, venda) {
+        const { data, error } = await supabase
+            .from('vendas')
+            .update(venda)
+            .eq('id', id)
+            .select()
+        return { data, error }
+    },
+    
     // Auditoria
     async getAuditorias() {
         const { data, error } = await supabase
