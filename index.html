@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verbo Café - Sistema de Gestão</title>
+    
+    <!-- Fontes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CSS Principal -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-mug-hot"></i>
+                    <span>Verbo Café</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active" data-page="compras">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>Compras</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-page="produtos">
+                            <i class="fas fa-box"></i>
+                            <span>Produtos</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-page="vendas">
+                            <i class="fas fa-cash-register"></i>
+                            <span>Vendas</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-page="auditoria">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span>Auditoria</span>
+                        </a>
+                    </li>
+                    <li class="nav-item has-submenu">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Relatórios</span>
+                            <i class="fas fa-chevron-down submenu-arrow"></i>
+                        </a>
+                        <ul class="submenu">
+                            <li><a href="#" data-page="relatorio-compras">Compras</a></li>
+                            <li><a href="#" data-page="relatorio-vendas">Vendas</a></li>
+                            <li><a href="#" data-page="relatorio-auditoria">Auditoria</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title">
+                    <h1 id="pageTitle">Compras</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="user-info">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Administrador</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Container das Páginas -->
+            <div class="pages-container" id="pagesContainer">
+                <!-- As páginas serão carregadas dinamicamente aqui -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Templates das Páginas -->
+    <template id="template-compras">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cadastro de Compras</h2>
+                </div>
+                <div class="card-body">
+                    <form id="formCompras" class="modern-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="dataCompra">Data da Compra</label>
+                                <input type="text" id="dataCompra" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="codigoProduto">Código do Produto</label>
+                                <input type="text" id="codigoProduto" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="descricaoProduto">Descrição do Produto</label>
+                                <input type="text" id="descricaoProduto" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="fornecedor">Fornecedor</label>
+                                <input type="text" id="fornecedor" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="categoria">Categoria</label>
+                                <select id="categoria" class="form-control" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Bebidas Quentes">Bebidas</option>
+                                    <!--<option value="Bebidas Frias">Bebidas Frias</option>-->
+                                    <option value="Salgados">Salgados</option>
+                                    <option value="Doces">Doces</option>
+                                    <!--<option value="Lanches">Lanches</option>-->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="quantidade">Quantidade</label>
+                                <input type="number" id="quantidade" class="form-control" min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="valorCompra">Valor de Compra (R$)</label>
+                                <input type="number" id="valorCompra" class="form-control" step="0.01" min="0.01" required>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="comprasModule.cadastrar()">
+                                <i class="fas fa-save"></i> Cadastrar
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="comprasModule.alterar()">
+                                <i class="fas fa-edit"></i> Alterar
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="comprasModule.excluir()">
+                                <i class="fas fa-trash"></i> Excluir
+                            </button>
+                            <button type="button" class="btn btn-light" onclick="comprasModule.limparForm()">
+                                <i class="fas fa-undo"></i> Limpar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h2>Compras Realizadas</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table modern-table" id="tabelaCompras">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Fornecedor</th>
+                                    <th>Categoria</th>
+                                    <th>Qtd</th>
+                                    <th>Valor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyCompras"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-produtos">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Cadastro de Produtos</h2>
+                </div>
+                <div class="card-body">
+                    <form id="formProdutos" class="modern-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="codigoProdutoSelect">Código do Produto</label>
+                                <select id="codigoProdutoSelect" class="form-control" required>
+                                    <option value="">Selecione um código...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="descricaoProdutoProd">Descrição do Produto</label>
+                                <input type="text" id="descricaoProdutoProd" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="fornecedorProd">Fornecedor</label>
+                                <input type="text" id="fornecedorProd" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="categoriaProd">Categoria</label>
+                                <input type="text" id="categoriaProd" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="quantidadeProd">Quantidade</label>
+                                <input type="number" id="quantidadeProd" class="form-control" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="valorVenda">Valor de Venda (R$)</label>
+                                <input type="text" id="valorVenda" class="form-control" placeholder="0,00" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="produtosModule.cadastrar()">
+                                <i class="fas fa-save"></i> Cadastrar
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="produtosModule.alterar()">
+                                <i class="fas fa-edit"></i> Alterar
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="produtosModule.excluir()">
+                                <i class="fas fa-trash"></i> Excluir
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h2>Produtos Cadastrados</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table modern-table" id="tabelaProdutos">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Fornecedor</th>
+                                    <th>Categoria</th>
+                                    <th>Qtd</th>
+                                    <th>Valor Venda</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyProdutos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-vendas">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Realizar Venda</h2>
+                </div>
+                <div class="card-body">
+                    <form id="formVendas" class="modern-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dataVenda">Data da Venda</label>
+                                <input type="text" id="dataVenda" class="form-control" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="numeroVenda">Nº Venda</label>
+                                <input type="text" id="numeroVenda" class="form-control" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="venda-produto-section">
+                            <h3>Adicionar Produto</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="descricaoVenda">Descrição do Produto</label>
+                                    <select id="descricaoVenda" class="form-control" required>
+                                        <option value="">Selecione um produto...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="codigoVenda">Código</label>
+                                    <input type="text" id="codigoVenda" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fornecedorVenda">Fornecedor</label>
+                                    <input type="text" id="fornecedorVenda" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="categoriaVenda">Categoria</label>
+                                    <input type="text" id="categoriaVenda" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="valorUnitarioVenda">Valor Unit. (R$)</label>
+                                    <input type="text" id="valorUnitarioVenda" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="quantidadeVenda">Quantidade</label>
+                                    <input type="number" id="quantidadeVenda" class="form-control" min="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="descontoVenda">Desconto (R$)</label>
+                                    <input type="text" id="descontoVenda" class="form-control" value="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="valorTotalVenda">Valor Total (R$)</label>
+                                    <input type="text" id="valorTotalVenda" class="form-control" readonly>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-success" onclick="vendasModule.adicionarProduto()">
+                                <i class="fas fa-plus"></i> Adicionar Produto
+                            </button>
+                        </div>
+                        
+                        <div class="itens-venda-section mt-4">
+                            <h3>Itens da Venda</h3>
+                            <div class="table-responsive">
+                                <table class="table modern-table" id="tabelaItensVenda">
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th>Qtd</th>
+                                            <th>Valor Unit.</th>
+                                            <th>Desconto</th>
+                                            <th>Total</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyItensVenda"></tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td><strong>TOTAL</strong></td>
+                                            <td id="totalQuantidade">0</td>
+                                            <td>-</td>
+                                            <td id="totalDesconto">R$ 0,00</td>
+                                            <td id="totalVenda">R$ 0,00</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions mt-4">
+                            <button type="button" class="btn btn-success" onclick="vendasModule.realizarVenda()">
+                                <i class="fas fa-check"></i> Realizar Venda
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="vendasModule.cancelarVenda()">
+                                <i class="fas fa-times"></i> Cancelar Venda
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="template-auditoria">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Auditoria de Estoque</h2>
+                </div>
+                <div class="card-body">
+                    <form id="formAuditoria" class="modern-form">
+                        <div class="form-group">
+                            <label for="dataAuditoria">Data da Auditoria</label>
+                            <input type="text" id="dataAuditoria" class="form-control" readonly>
+                        </div>
+                        
+                        <div class="auditoria-produto-section">
+                            <h3>Adicionar Produto para Auditoria</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="descricaoAuditoria">Descrição do Produto</label>
+                                    <select id="descricaoAuditoria" class="form-control" required>
+                                        <option value="">Selecione um produto...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="codigoAuditoria">Código</label>
+                                    <input type="text" id="codigoAuditoria" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="categoriaAuditoria">Categoria</label>
+                                    <input type="text" id="categoriaAuditoria" class="form-control" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="quantidadeAuditoria">Quantidade Física</label>
+                                    <input type="number" id="quantidadeAuditoria" class="form-control" min="0" required>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="auditoriaModule.adicionarProduto()">
+                                <i class="fas fa-plus"></i> Adicionar Produto
+                            </button>
+                        </div>
+                        
+                        <div class="itens-auditoria-section mt-4">
+                            <h3>Itens da Auditoria</h3>
+                            <div class="table-responsive">
+                                <table class="table modern-table" id="tabelaItensAuditoria">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Descrição</th>
+                                            <th>Categoria</th>
+                                            <th>Qtd Física</th>
+                                            <th>Qtd Sistema</th>
+                                            <th>Status</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyItensAuditoria"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions mt-4">
+                            <button type="button" class="btn btn-success" onclick="auditoriaModule.realizarAuditoria()">
+                                <i class="fas fa-check"></i> Realizar Auditoria
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="auditoriaModule.exportarPDF()">
+                                <i class="fas fa-file-pdf"></i> Exportar PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Scripts -->
+    <script type="module" src="js/app.js"></script>
+
+    <!-- Template Relatório de Compras -->
+    <template id="template-relatorio-compras">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Relatório de Compras</h2>
+                </div>
+                <div class="card-body">
+                    <div class="filtros-container">
+                        <div class="filtro-row">
+                            <div class="form-group">
+                                <label for="filtroTipoCompras">Tipo de Busca</label>
+                                <select id="filtroTipoCompras" class="form-control">
+                                    <option value="detalhado">Detalhado (por data)</option>
+                                    <option value="consolidado">Consolidado (por mês)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filtroDataCompras">Selecione</label>
+                                <select id="filtroDataCompras" class="form-control">
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-primary" onclick="relatoriosModule.aplicarFiltroCompras()">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-4">
+                        <table class="table modern-table" id="tabelaRelatorioCompras">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Fornecedor</th>
+                                    <th>Categoria</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor Compra</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRelatorioCompras"></tbody>
+                            <tfoot id="tfootRelatorioCompras"></tfoot>
+                        </table>
+                    </div>
+                    
+                    <div class="form-actions mt-4">
+                        <button class="btn btn-success" onclick="relatoriosModule.exportarPDFCompras()">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template Relatório de Vendas -->
+    <template id="template-relatorio-vendas">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Relatório de Vendas</h2>
+                </div>
+                <div class="card-body">
+                    <div class="filtros-container">
+                        <div class="filtro-row">
+                            <div class="form-group">
+                                <label for="filtroTipoVendas">Tipo de Busca</label>
+                                <select id="filtroTipoVendas" class="form-control">
+                                    <option value="detalhado">Detalhado (por data)</option>
+                                    <option value="consolidado">Consolidado (por mês)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filtroDataVendas">Selecione</label>
+                                <select id="filtroDataVendas" class="form-control">
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-primary" onclick="relatoriosModule.aplicarFiltroVendas()">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-4">
+                        <table class="table modern-table" id="tabelaRelatorioVendas">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Produto</th>
+                                    <th>Fornecedor</th>
+                                    <th>Categoria</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor Venda</th>
+                                    <th>% Lucro</th>
+                                    <th>Valor Lucro</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRelatorioVendas"></tbody>
+                            <tfoot id="tfootRelatorioVendas"></tfoot>
+                        </table>
+                    </div>
+                    
+                    <div class="form-actions mt-4">
+                        <button class="btn btn-success" onclick="relatoriosModule.exportarPDFVendas()">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template Relatório de Auditoria -->
+    <template id="template-relatorio-auditoria">
+        <div class="page-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Relatório de Auditoria</h2>
+                </div>
+                <div class="card-body">
+                    <div class="filtros-container">
+                        <div class="filtro-row">
+                            <div class="form-group">
+                                <label for="filtroTipoAuditoria">Tipo de Busca</label>
+                                <select id="filtroTipoAuditoria" class="form-control">
+                                    <option value="detalhado">Detalhado (por data)</option>
+                                    <option value="consolidado">Consolidado (por mês)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filtroDataAuditoria">Selecione</label>
+                                <select id="filtroDataAuditoria" class="form-control">
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-primary" onclick="relatoriosModule.aplicarFiltroAuditoria()">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-4">
+                        <table class="table modern-table" id="tabelaRelatorioAuditoria">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Quantidade</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRelatorioAuditoria"></tbody>
+                            <tfoot id="tfootRelatorioAuditoria"></tfoot>
+                        </table>
+                    </div>
+                    
+                    <div class="form-actions mt-4">
+                        <button class="btn btn-success" onclick="relatoriosModule.exportarPDFAuditoria()">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+</body>
+</html>

@@ -1,0 +1,162 @@
+// js/supabase-config.js
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+const supabaseUrl = 'https://qibeobvzfkwklxwukkja.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpYmVvYnZ6Zmt3a2x4d3Vra2phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NTY1MTQsImV4cCI6MjA5MTIzMjUxNH0.87rg6tGFJ69jEmN2gedSAwJ0EDRKS5C3UbvXPZzW4W0'
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Funções auxiliares
+export const supabaseService = {
+    // Compras
+    async getCompras() {
+        const { data, error } = await supabase
+            .from('compras')
+            .select('*')
+            .order('data_compra', { ascending: false })
+        return { data, error }
+    },
+    
+    async saveCompra(compra) {
+        const { data, error } = await supabase
+            .from('compras')
+            .insert([compra])
+            .select()
+        return { data, error }
+    },
+    
+    async updateCompra(id, compra) {
+        const { data, error } = await supabase
+            .from('compras')
+            .update(compra)
+            .eq('id', id)
+            .select()
+        return { data, error }
+    },
+    
+    async deleteCompra(id) {
+        const { error } = await supabase
+            .from('compras')
+            .delete()
+            .eq('id', id)
+        return { error }
+    },
+    
+    // Produtos
+    async getProdutos() {
+        const { data, error } = await supabase
+            .from('produtos')
+            .select('*')
+            .order('descricao_produto')
+        return { data, error }
+    },
+    
+    async saveProduto(produto) {
+        const { data, error } = await supabase
+            .from('produtos')
+            .insert([produto])
+            .select()
+        return { data, error }
+    },
+    
+    async updateProduto(id, produto) {
+        const { data, error } = await supabase
+            .from('produtos')
+            .update(produto)
+            .eq('id', id)
+            .select()
+        return { data, error }
+    },
+    
+    async deleteProduto(id) {
+        const { error } = await supabase
+            .from('produtos')
+            .delete()
+            .eq('id', id)
+        return { error }
+    },
+    
+    async getCodigosCompra() {
+        const { data, error } = await supabase
+            .from('compras')
+            .select('codigo_produto, descricao_produto, fornecedor, categoria')
+        return { data, error }
+    },
+    
+    // Vendas
+    async getVendas() {
+        const { data, error } = await supabase
+            .from('vendas')
+            .select('*, itens_venda(*)')
+            .order('data_venda', { ascending: false })
+        return { data, error }
+    },
+    
+    async saveVenda(venda, itens) {
+        try {
+            // Primeiro, insere a venda
+            const { data: vendaData, error: vendaError } = await supabase
+                .from('vendas')
+                .insert([venda])
+                .select()
+            
+            if (vendaError) {
+                console.error('Erro ao salvar venda:', vendaError)
+                return { error: vendaError }
+            }
+            
+            if (!vendaData || vendaData.length === 0) {
+                return { error: new Error('Nenhum dado retornado ao salvar venda') }
+            }
+            
+            const vendaId = vendaData[0].id
+            
+            // Preparar itens para inserção
+            const itensParaInserir = itens.map(item => ({
+                venda_id: vendaId,
+                produto_id: item.produto_id,
+                codigo_produto: item.codigo_produto,
+                descricao_produto: item.descricao_produto,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                desconto: item.desconto || 0,
+                valor_total: item.valor_total
+            }))
+            
+            // Inserir itens da venda
+            const { error: itensError } = await supabase
+                .from('itens_venda')
+                .insert(itensParaInserir)
+            
+            if (itensError) {
+                console.error('Erro ao salvar itens da venda:', itensError)
+                // Tentar deletar a venda se os itens falharem
+                await supabase.from('vendas').delete().eq('id', vendaId)
+                return { error: itensError }
+            }
+            
+            return { data: vendaData, error: null }
+            
+        } catch (err) {
+            console.error('Erro inesperado ao salvar venda:', err)
+            return { error: err }
+        }
+    },
+    
+    // Auditoria
+    async getAuditorias() {
+        const { data, error } = await supabase
+            .from('auditoria')
+            .select('*')
+            .order('data_auditoria', { ascending: false })
+        return { data, error }
+    },
+    
+    async saveAuditoria(auditoria) {
+        const { data, error } = await supabase
+            .from('auditoria')
+            .insert(auditoria)
+            .select()
+        return { data, error }
+    }
+}
