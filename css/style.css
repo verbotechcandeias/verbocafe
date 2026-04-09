@@ -1012,3 +1012,22 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .form-group label span {
     font-size: 14px;
 }
+
+.badge-info {
+    background: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+#tabelaRelatorioVendas .badge {
+    font-size: 11px;
+    padding: 3px 6px;
+    white-space: nowrap;
+}
+
+#tabelaRelatorioVendas td {
+    vertical-align: middle;
+}

@@ -131,7 +131,6 @@ class RelatoriosModule {
                 
                 if (venda) {
                     // Usar fornecedor e categoria do ITEM (que está correto)
-                    // Se por algum motivo não tiver no item, buscar do produto
                     let fornecedor = item.fornecedor
                     let categoria = item.categoria
                     
@@ -142,12 +141,16 @@ class RelatoriosModule {
                         categoria = categoria || produto?.categoria || venda.categoria || '-'
                     }
                     
+                    // Obter forma de pagamento (do item ou da venda)
+                    const formaPagamento = item.forma_pagamento || venda.forma_pagamento || '-'
+                    
                     itensComVenda.push({
                         ...item,
                         numero_venda: venda.numero_venda,
                         data_venda: venda.data_venda,
                         fornecedor: fornecedor,
-                        categoria: categoria
+                        categoria: categoria,
+                        forma_pagamento: formaPagamento  // Adicionar forma de pagamento
                     })
                 }
             }
@@ -257,27 +260,31 @@ class RelatoriosModule {
         tbody.innerHTML = ''
         
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
+        // Agrupar itens por data
         const itensAgrupados = this.agruparItensPorData(dados)
         let totalGeralQuantidade = 0
         let totalGeralVendas = 0
         let totalGeralCusto = 0
         let totalGeralLucro = 0
         
+        // Ordenar datas em ordem decrescente
         const datasOrdenadas = Object.keys(itensAgrupados).sort().reverse()
         
         datasOrdenadas.forEach(data => {
             const itens = itensAgrupados[data]
             
+            // Variáveis para subtotal do dia
             let subtotalQuantidade = 0
             let subtotalVendas = 0
             let subtotalCusto = 0
             let subtotalLucro = 0
             
+            // Renderizar cada item do dia
             itens.forEach(item => {
                 const lucro = this.calcularLucroItem(item)
                 const percentualLucro = this.calcularPercentualLucroItem(item)
@@ -285,6 +292,17 @@ class RelatoriosModule {
                 
                 const fornecedor = item.fornecedor || '-'
                 const categoria = item.categoria || '-'
+                const formaPagamento = item.forma_pagamento || '-'
+                
+                // Definir classe de estilo para forma de pagamento
+                let formaPagamentoClass = ''
+                if (formaPagamento === 'Pendente') {
+                    formaPagamentoClass = 'badge badge-warning'
+                } else if (formaPagamento === 'PIX' || formaPagamento === 'Dinheiro') {
+                    formaPagamentoClass = 'badge badge-success'
+                } else if (formaPagamento.includes('Cartão')) {
+                    formaPagamentoClass = 'badge badge-info'
+                }
                 
                 const tr = document.createElement('tr')
                 tr.innerHTML = `
@@ -297,24 +315,29 @@ class RelatoriosModule {
                     <td>${formatters.formatCurrency(item.valor_unitario)}</td>
                     <td>${formatters.formatCurrency(item.desconto || 0)}</td>
                     <td>${formatters.formatCurrency(item.valor_total)}</td>
+                    <td><span class="${formaPagamentoClass}">${formaPagamento}</span></td>
                     <td>${percentualLucro.toFixed(2)}%</td>
                     <td>${formatters.formatCurrency(lucro)}</td>
                 `
                 tbody.appendChild(tr)
                 
+                // Acumular subtotais do dia
                 subtotalQuantidade += item.quantidade || 0
                 subtotalVendas += parseFloat(item.valor_total) || 0
                 subtotalCusto += custoTotal
                 subtotalLucro += lucro
                 
+                // Acumular totais gerais
                 totalGeralQuantidade += item.quantidade || 0
                 totalGeralVendas += parseFloat(item.valor_total) || 0
                 totalGeralCusto += custoTotal
                 totalGeralLucro += lucro
             })
             
+            // Calcular percentual médio de lucro do dia
             const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
             
+            // Adicionar linha de subtotal por data
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
@@ -324,23 +347,25 @@ class RelatoriosModule {
                     <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
                 </td>
                 <td><strong>${subtotalQuantidade}</strong></td>
-                <td colspan="2"></td>
-                <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
+                <td colspan="3"></td>
+                <td></td>
                 <td><strong>${percentualMedioLucro.toFixed(2)}%</strong></td>
                 <td><strong>${formatters.formatCurrency(subtotalLucro)}</strong></td>
             `
             tbody.appendChild(trSubtotal)
         })
         
+        // Calcular percentual médio geral
         const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
         
+        // Adicionar linha de total geral no tfoot
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
                     <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
                     <td><strong>${totalGeralQuantidade}</strong></td>
-                    <td colspan="2"></td>
-                    <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
+                    <td colspan="3"></td>
+                    <td></td>
                     <td><strong>${percentualMedioGeral.toFixed(2)}%</strong></td>
                     <td><strong>${formatters.formatCurrency(totalGeralLucro)}</strong></td>
                 </tr>
