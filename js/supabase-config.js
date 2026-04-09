@@ -127,9 +127,10 @@ export const supabaseService = {
                 categoria: item.categoria,
                 quantidade: item.quantidade,
                 valor_unitario: item.valor_unitario,
-                valor_compra: item.valor_compra || 0,    // Salvar valor de compra
+                valor_compra: item.valor_compra || 0,
                 desconto: item.desconto || 0,
-                valor_total: item.valor_total
+                valor_total: item.valor_total,
+                forma_pagamento: item.forma_pagamento || 'Pendente'  // Adicionar forma de pagamento
             }))
             
             const { error: itensError } = await supabase
@@ -152,10 +153,19 @@ export const supabaseService = {
 
     // Atualizar método saveItensVenda
     async saveItensVenda(itens) {
+        console.log('Salvando itens no Supabase:', itens)
+        
         const { data, error } = await supabase
             .from('itens_venda')
             .insert(itens)
             .select()
+        
+        if (error) {
+            console.error('Erro Supabase saveItensVenda:', error)
+        } else {
+            console.log('Itens salvos:', data)
+        }
+        
         return { data, error }
     },
     
@@ -190,11 +200,20 @@ export const supabaseService = {
 
     // Atualizar uma venda
     async updateVenda(id, venda) {
+        console.log('Atualizando venda no Supabase:', { id, venda })
+        
         const { data, error } = await supabase
             .from('vendas')
             .update(venda)
             .eq('id', id)
             .select()
+        
+        if (error) {
+            console.error('Erro Supabase updateVenda:', error)
+        } else {
+            console.log('Venda atualizada:', data)
+        }
+        
         return { data, error }
     },
 

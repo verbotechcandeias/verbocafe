@@ -11,6 +11,7 @@ class VendasModule {
         this.vendaEditando = null
         this.numeroVenda = this.gerarNumeroVenda()
         this.compras = []
+        this.formaPagamento = 'Pendente'
     }
 
     async carregarCompras() {
@@ -86,6 +87,17 @@ class VendasModule {
         if (selectProduto) {
             selectProduto.addEventListener('change', (e) => {
                 this.onProdutoSelecionado(e.target)
+            })
+        }
+
+         // Adicionar listener para forma de pagamento
+        const formaPagamento = document.getElementById('formaPagamentoVenda')
+        if (formaPagamento) {
+            formaPagamento.addEventListener('change', (e) => {
+                this.formaPagamento = e.target.value
+                console.log('Forma de pagamento selecionada:', this.formaPagamento)
+                // Limpar erro de validação quando selecionar
+                validators.clearValidationError(e.target)
             })
         }
         
@@ -349,7 +361,7 @@ class VendasModule {
         if (!itens || itens.length === 0) {
             const tr = document.createElement('tr')
             tr.innerHTML = `
-                <td colspan="8" style="text-align: center; padding: 20px; color: #999;">
+                <td colspan="9" style="text-align: center; padding: 20px; color: #999;">
                     <i class="fas fa-info-circle"></i> Nenhuma venda realizada hoje
                 </td>
             `
@@ -365,7 +377,6 @@ class VendasModule {
         let totalQuantidade = 0
         let totalVendas = 0
         
-        // Ordenar por data/hora (mais recente primeiro)
         const itensOrdenados = [...itens].sort((a, b) => {
             const dataA = new Date(a.data_venda)
             const dataB = new Date(b.data_venda)
@@ -375,24 +386,25 @@ class VendasModule {
         itensOrdenados.forEach(item => {
             const tr = document.createElement('tr')
             
-            // Formatar data/hora
             let dataHora = '-'
             if (item.data_venda) {
                 dataHora = formatters.formatDateTime(item.data_venda)
             }
             
-            // Formatar valor
             const valorTotal = parseFloat(item.valor_total) || 0
-            
-            // Garantir que fornecedor e categoria estão corretos
             const fornecedor = item.fornecedor || this.getFornecedorProduto(item.produto_id) || '-'
             const categoria = item.categoria || this.getCategoriaProduto(item.produto_id) || '-'
+            const formaPagamento = item.forma_pagamento || '-'
             
-            console.log('Renderizando item:', {
-                produto: item.descricao_produto,
-                fornecedor: fornecedor,
-                categoria: categoria
-            })
+            // Definir classe de cor para forma de pagamento
+            let formaPagamentoClass = ''
+            if (formaPagamento === 'Pendente') {
+                formaPagamentoClass = 'badge badge-warning'
+            } else if (formaPagamento === 'PIX' || formaPagamento === 'Dinheiro') {
+                formaPagamentoClass = 'badge badge-success'
+            } else {
+                formaPagamentoClass = 'badge badge-info'
+            }
             
             tr.innerHTML = `
                 <td>${dataHora}</td>
@@ -402,6 +414,7 @@ class VendasModule {
                 <td>${categoria}</td>
                 <td>${item.quantidade || 0}</td>
                 <td>${formatters.formatCurrency(valorTotal)}</td>
+                <td><span class="${formaPagamentoClass}">${formaPagamento}</span></td>
                 <td>
                     <button class="btn-icon" onclick="vendasModule.editarItemVenda('${item.venda_id}', '${item.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
@@ -831,8 +844,22 @@ class VendasModule {
     }
     
     async realizarVenda() {
+        // Validar se há itens
         if (this.itensVenda.length === 0) {
             this.showError('Adicione pelo menos um produto à venda')
+            return
+        }
+        
+        // Validar forma de pagamento
+        const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
+        const formaPagamento = formaPagamentoSelect?.value
+        
+        if (!formaPagamento) {
+            this.showError('Selecione a forma de pagamento')
+            if (formaPagamentoSelect) {
+                validators.showValidationError(formaPagamentoSelect, 'Selecione a forma de pagamento')
+                formaPagamentoSelect.focus()
+            }
             return
         }
         
@@ -870,7 +897,6 @@ class VendasModule {
             this.hideLoading()
             this.showSuccess(this.vendaEditando ? 'Venda atualizada com sucesso!' : 'Venda realizada com sucesso!')
             
-            // Limpar o formulário sem perguntar (venda já foi realizada)
             this.limparVenda()
             
             await this.carregarProdutos()
@@ -893,12 +919,21 @@ class VendasModule {
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
         this.setDataVenda()
+        
+        // Resetar forma de pagamento
+        const formaPagamento = document.getElementById('formaPagamentoVenda')
+        if (formaPagamento) {
+            formaPagamento.value = ''
+            this.formaPagamento = 'Pendente'
+            validators.clearValidationError(formaPagamento)
+        }
     }
     
     async criarNovaVenda() {
         console.log('Criando nova venda...')
         
         const primeiroItem = this.itensVenda[0]
+        const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || 'Pendente'
         
         const venda = {
             data_venda: new Date().toISOString(),
@@ -910,31 +945,26 @@ class VendasModule {
             quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
             valor_unitario: primeiroItem.valor_unitario,
             desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
-            valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0)
+            valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0),
+            forma_pagamento: formaPagamento
         }
         
-        // Preparar itens com valor_compra
-        const itensParaSalvar = this.itensVenda.map(item => {
-            console.log('Item para salvar:', {
-                produto: item.descricao_produto,
-                valor_compra: item.valor_compra
-            })
-            
-            return {
-                produto_id: item.produto_id,
-                codigo_produto: item.codigo_produto,
-                descricao_produto: item.descricao_produto,
-                fornecedor: item.fornecedor,
-                categoria: item.categoria,
-                quantidade: item.quantidade,
-                valor_unitario: item.valor_unitario,
-                valor_compra: item.valor_compra || 0,    // Garantir que não seja undefined
-                desconto: item.desconto || 0,
-                valor_total: item.valor_total
-            }
-        })
+        console.log('Dados da venda a salvar:', venda)
         
-        console.log('Itens a serem salvos:', itensParaSalvar)
+        // Preparar itens com forma_pagamento
+        const itensParaSalvar = this.itensVenda.map(item => ({
+            produto_id: item.produto_id,
+            codigo_produto: item.codigo_produto,
+            descricao_produto: item.descricao_produto,
+            fornecedor: item.fornecedor,
+            categoria: item.categoria,
+            quantidade: item.quantidade,
+            valor_unitario: item.valor_unitario,
+            valor_compra: item.valor_compra || 0,
+            desconto: item.desconto || 0,
+            valor_total: item.valor_total,
+            forma_pagamento: formaPagamento
+        }))
         
         const { data, error } = await supabaseService.saveVenda(venda, itensParaSalvar)
         
@@ -981,7 +1011,13 @@ class VendasModule {
         
         const primeiroItem = this.itensVenda[0]
         
-        // Atualizar a venda (resumo)
+        // Obter a forma de pagamento selecionada
+        const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
+        const formaPagamento = formaPagamentoSelect?.value || this.vendaEditando.forma_pagamento || 'Pendente'
+        
+        console.log('Forma de pagamento para atualização:', formaPagamento)
+        
+        // Atualizar a venda (resumo) - INCLUIR forma_pagamento
         const vendaAtualizada = {
             data_venda: this.vendaEditando.data_venda,
             numero_venda: this.numeroVenda,
@@ -992,23 +1028,31 @@ class VendasModule {
             quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
             valor_unitario: primeiroItem.valor_unitario,
             desconto: this.itensVenda.reduce((sum, item) => sum + (item.desconto || 0), 0),
-            valor_total: this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0)
+            valor_total: this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0),
+            forma_pagamento: formaPagamento  // IMPORTANTE: Atualizar forma de pagamento
         }
         
-        await supabaseService.updateVenda(this.vendaEditando.id, vendaAtualizada)
+        console.log('Venda atualizada a ser salva:', vendaAtualizada)
+        
+        // Atualizar a venda no banco
+        const { data: vendaAtualizadaData, error: updateError } = await supabaseService.updateVenda(
+            this.vendaEditando.id, 
+            vendaAtualizada
+        )
+        
+        if (updateError) {
+            console.error('Erro ao atualizar venda:', updateError)
+            throw updateError
+        }
+        
+        console.log('Venda atualizada com sucesso:', vendaAtualizadaData)
         
         // Excluir itens antigos
         await supabaseService.deleteItensVenda(this.vendaEditando.id)
         
-        // Preparar novos itens PRESERVANDO o valor_compra
+        // Inserir novos itens com forma_pagamento ATUALIZADA
         const itensParaInserir = this.itensVenda.map(item => {
-            // Garantir que o valor_compra não seja undefined ou null
             const valorCompra = item.valor_compra || this.buscarValorCompraProduto(item.codigo_produto) || 0
-            
-            console.log('Item para inserir na atualização:', {
-                produto: item.descricao_produto,
-                valor_compra: valorCompra
-            })
             
             return {
                 venda_id: this.vendaEditando.id,
@@ -1019,18 +1063,20 @@ class VendasModule {
                 categoria: item.categoria,
                 quantidade: item.quantidade,
                 valor_unitario: item.valor_unitario,
-                valor_compra: valorCompra,           // Preservar valor_compra
+                valor_compra: valorCompra,
                 desconto: item.desconto || 0,
-                valor_total: item.valor_total
+                valor_total: item.valor_total,
+                forma_pagamento: formaPagamento  // IMPORTANTE: Atualizar forma de pagamento nos itens
             }
         })
         
         console.log('Itens a serem inseridos na atualização:', itensParaInserir)
         
-        const { error } = await supabaseService.saveItensVenda(itensParaInserir)
-        if (error) {
-            console.error('Erro ao salvar itens atualizados:', error)
-            throw error
+        const { error: itensError } = await supabaseService.saveItensVenda(itensParaInserir)
+        
+        if (itensError) {
+            console.error('Erro ao salvar itens atualizados:', itensError)
+            throw itensError
         }
         
         // Subtrair novos itens do estoque
@@ -1045,14 +1091,13 @@ class VendasModule {
             }
         }
         
-        console.log('Venda atualizada com sucesso!')
+        console.log('Venda e itens atualizados com sucesso!')
     }
     
     async editarItemVenda(vendaId, itemId) {
         try {
             this.showLoading('Carregando itens da venda...')
             
-            // Buscar a venda
             const { data: vendas, error } = await supabaseService.getVendas()
             
             if (error) {
@@ -1068,7 +1113,6 @@ class VendasModule {
                 return
             }
             
-            // Buscar todos os itens desta venda
             const { data: itens, error: itensError } = await supabaseService.getItensVenda(vendaId)
             
             this.hideLoading()
@@ -1078,27 +1122,24 @@ class VendasModule {
                 return
             }
             
-            console.log('Itens carregados para edição:', itens)
-            
             this.vendaEditando = venda
             this.numeroVenda = venda.numero_venda
             this.setNumeroVenda()
             
-            // Carregar itens PRESERVANDO o valor_compra original
+            // Definir forma de pagamento no select
+            const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
+            if (formaPagamentoSelect) {
+                formaPagamentoSelect.value = venda.forma_pagamento || 'Pendente'
+                this.formaPagamento = venda.forma_pagamento || 'Pendente'
+                validators.clearValidationError(formaPagamentoSelect)
+            }
+            
+            // Carregar itens
             this.itensVenda = (itens || []).map(item => {
-                // Se o item não tiver valor_compra, buscar do produto
                 let valorCompra = item.valor_compra
-                
                 if (!valorCompra || valorCompra === 0) {
                     valorCompra = this.buscarValorCompraProduto(item.codigo_produto)
-                    console.log(`Valor de compra não encontrado no item, buscado do produto: ${valorCompra}`)
                 }
-                
-                console.log('Item carregado:', {
-                    produto: item.descricao_produto,
-                    valor_compra_original: item.valor_compra,
-                    valor_compra_final: valorCompra
-                })
                 
                 return {
                     id: item.id,
@@ -1109,7 +1150,7 @@ class VendasModule {
                     categoria: item.categoria || this.getCategoriaProduto(item.produto_id),
                     quantidade: item.quantidade,
                     valor_unitario: item.valor_unitario,
-                    valor_compra: valorCompra,           // Preservar valor_compra original
+                    valor_compra: valorCompra,
                     desconto: item.desconto || 0,
                     valor_total: item.valor_total
                 }
@@ -1286,7 +1327,6 @@ class VendasModule {
     }
     
     cancelarVenda() {
-        // Só pergunta se houver itens na venda ou estiver editando
         if (this.itensVenda.length > 0 || this.vendaEditando) {
             const mensagem = this.vendaEditando ? 
                 'Cancelar edição da venda? Os itens não serão salvos.' : 
@@ -1297,7 +1337,6 @@ class VendasModule {
             }
         }
         
-        // Se chegou aqui, o usuário confirmou o cancelamento
         this.itensVenda = []
         this.vendaEditando = null
         this.limparFormProduto()
@@ -1306,6 +1345,14 @@ class VendasModule {
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
         this.setDataVenda()
+        
+        // Resetar forma de pagamento
+        const formaPagamento = document.getElementById('formaPagamentoVenda')
+        if (formaPagamento) {
+            formaPagamento.value = ''
+            this.formaPagamento = 'Pendente'
+            validators.clearValidationError(formaPagamento)
+        }
     }
 
     // Método para o botão Cancelar (chamado pelo onclick)

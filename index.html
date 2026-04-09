@@ -356,6 +356,21 @@
                             </div>
                         </div>
                         
+                        <!-- Campo Forma de Pagamento depois do Valor Total -->
+                        <div class="form-row mt-4">
+                            <div class="form-group">
+                                <label for="formaPagamentoVenda">Forma de Pagamento <span style="color: red;">*</span></label>
+                                <select id="formaPagamentoVenda" class="form-control" required>
+                                    <option value="">Selecione a forma de pagamento...</option>
+                                    <option value="PIX">PIX</option>
+                                    <option value="Cartão de Débito">Cartão de Débito</option>
+                                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                    <option value="Dinheiro">Dinheiro</option>
+                                    <option value="Pendente">Pendente</option>
+                                </select>
+                            </div>
+                        </div>
+                        
                         <div class="form-actions mt-4">
                             <button type="button" class="btn btn-success" onclick="vendasModule.realizarVenda()">
                                 <i class="fas fa-check"></i> Realizar Venda
@@ -391,6 +406,7 @@
                                     <th>Categoria</th>
                                     <th>Qtd</th>
                                     <th>Valor Venda</th>
+                                    <th>Forma Pagamento</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -400,6 +416,7 @@
                                     <td colspan="5"><strong>TOTAL DO DIA</strong></td>
                                     <td id="totalQuantidadeDia">0</td>
                                     <td id="totalVendasDia">R$ 0,00</td>
+                                    <td></td>
                                     <td></td>
                                 </tr>
                             </tfoot>

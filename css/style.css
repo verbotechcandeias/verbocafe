@@ -981,3 +981,34 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     padding: 12px 15px;
     font-size: 14px;
 }
+
+.badge-info {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+#tabelaVendasDia .badge {
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+#formaPagamento {
+    min-width: 150px;
+}
+
+#formaPagamentoVenda {
+    min-width: 200px;
+    font-size: 16px;
+}
+
+#formaPagamentoVenda.is-invalid {
+    border-color: #dc3545 !important;
+}
+
+#formaPagamentoVenda.is-invalid:focus {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+.form-group label span {
+    font-size: 14px;
+}
