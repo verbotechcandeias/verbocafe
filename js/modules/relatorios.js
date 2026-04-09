@@ -24,43 +24,125 @@ class RelatoriosModule {
         this.setupFiltrosAuditoria()
     }
     
-    async carregarCompras() {
-        const { data, error } = await supabaseService.getCompras()
+    // Método para extrair data no formato YYYY-MM-DD considerando fuso local
+    extrairDataLocal(dataString) {
+        if (!dataString) return null
         
-        if (error) {
-            console.error('Erro ao carregar compras:', error)
-            return
+        const data = new Date(dataString)
+        if (isNaN(data.getTime())) return null
+        
+        const ano = data.getFullYear()
+        const mes = String(data.getMonth() + 1).padStart(2, '0')
+        const dia = String(data.getDate()).padStart(2, '0')
+        
+        return `${ano}-${mes}-${dia}`
+    }
+    
+    // Método para extrair mês/ano no formato YYYY-MM
+    extrairMesAnoLocal(dataString) {
+        if (!dataString) return null
+        
+        const data = new Date(dataString)
+        if (isNaN(data.getTime())) return null
+        
+        const ano = data.getFullYear()
+        const mes = String(data.getMonth() + 1).padStart(2, '0')
+        
+        return `${ano}-${mes}`
+    }
+    
+    formatarDataExibicao(dataString) {
+        if (!dataString) return '-'
+        
+        // Se já estiver no formato YYYY-MM-DD
+        if (typeof dataString === 'string' && dataString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [ano, mes, dia] = dataString.split('-')
+            return `${dia}/${mes}/${ano}`
         }
         
-        this.dadosCompras = data || []
-        this.renderizarCompras(this.dadosCompras)
-        this.preencherFiltroDatas('compras')
+        const data = new Date(dataString)
+        if (isNaN(data.getTime())) return '-'
+        
+        const dia = String(data.getDate()).padStart(2, '0')
+        const mes = String(data.getMonth() + 1).padStart(2, '0')
+        const ano = data.getFullYear()
+        
+        return `${dia}/${mes}/${ano}`
+    }
+    
+    formatarDataHoraExibicao(dataString) {
+        if (!dataString) return '-'
+        
+        const data = new Date(dataString)
+        if (isNaN(data.getTime())) return '-'
+        
+        const dia = String(data.getDate()).padStart(2, '0')
+        const mes = String(data.getMonth() + 1).padStart(2, '0')
+        const ano = data.getFullYear()
+        const horas = String(data.getHours()).padStart(2, '0')
+        const minutos = String(data.getMinutes()).padStart(2, '0')
+        
+        return `${dia}/${mes}/${ano} ${horas}:${minutos}`
+    }
+    
+    async carregarCompras() {
+        try {
+            const { data, error } = await supabaseService.getCompras()
+            
+            if (error) {
+                console.error('Erro ao carregar compras:', error)
+                return
+            }
+            
+            this.dadosCompras = data || []
+            console.log('Compras carregadas:', this.dadosCompras.length)
+            this.renderizarCompras(this.dadosCompras)
+            this.preencherFiltroDatas('compras')
+        } catch (err) {
+            console.error('Erro ao carregar compras:', err)
+        }
     }
     
     async carregarVendas() {
-        const { data, error } = await supabaseService.getVendas()
-        
-        if (error) {
-            console.error('Erro ao carregar vendas:', error)
-            return
+        try {
+            const { data, error } = await supabaseService.getVendas()
+            
+            if (error) {
+                console.error('Erro ao carregar vendas:', error)
+                return
+            }
+            
+            this.dadosVendas = data || []
+            console.log('Vendas carregadas:', this.dadosVendas.length)
+            
+            // Log para debug das datas
+            this.dadosVendas.forEach(venda => {
+                console.log('Data original:', venda.data_venda, '→ Data extraída:', this.extrairDataLocal(venda.data_venda))
+            })
+            
+            this.renderizarVendas(this.dadosVendas)
+            this.preencherFiltroDatas('vendas')
+        } catch (err) {
+            console.error('Erro ao carregar vendas:', err)
         }
-        
-        this.dadosVendas = data || []
-        this.renderizarVendas(this.dadosVendas)
-        this.preencherFiltroDatas('vendas')
     }
     
     async carregarAuditorias() {
-        const { data, error } = await supabaseService.getAuditorias()
-        
-        if (error) {
-            console.error('Erro ao carregar auditorias:', error)
-            return
+        try {
+            const { data, error } = await supabaseService.getAuditorias()
+            
+            if (error) {
+                console.error('Erro ao carregar auditorias:', error)
+                return
+            }
+            
+            this.dadosAuditoria = data || []
+            console.log('Auditorias carregadas:', this.dadosAuditoria.length)
+            this.renderizarAuditoria(this.dadosAuditoria)
+            this.preencherFiltroDatas('auditoria')
+        } catch (err) {
+            console.error('Erro ao carregar auditorias:', err)
         }
-        
-        this.dadosAuditoria = data || []
-        this.renderizarAuditoria(this.dadosAuditoria)
-        this.preencherFiltroDatas('auditoria')
     }
     
     renderizarCompras(dados) {
@@ -73,27 +155,32 @@ class RelatoriosModule {
         let totalQuantidade = 0
         let totalValor = 0
         
-        if (dados.length === 0) {
+        if (!dados || dados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
-        dados.forEach(compra => {
+        // Ordenar por data (mais recente primeiro)
+        const dadosOrdenados = [...dados].sort((a, b) => 
+            new Date(b.data_compra) - new Date(a.data_compra)
+        )
+        
+        dadosOrdenados.forEach(compra => {
             const tr = document.createElement('tr')
             tr.innerHTML = `
-                <td>${formatters.formatDate(compra.data_compra)}</td>
-                <td>${compra.codigo_produto}</td>
-                <td>${compra.descricao_produto}</td>
-                <td>${compra.fornecedor}</td>
-                <td>${compra.categoria}</td>
-                <td>${compra.quantidade}</td>
+                <td>${this.formatarDataExibicao(compra.data_compra)}</td>
+                <td>${compra.codigo_produto || '-'}</td>
+                <td>${compra.descricao_produto || '-'}</td>
+                <td>${compra.fornecedor || '-'}</td>
+                <td>${compra.categoria || '-'}</td>
+                <td>${compra.quantidade || 0}</td>
                 <td>${formatters.formatCurrency(compra.valor_compra)}</td>
             `
             tbody.appendChild(tr)
             
-            totalQuantidade += compra.quantidade
-            totalValor += parseFloat(compra.valor_compra)
+            totalQuantidade += compra.quantidade || 0
+            totalValor += parseFloat(compra.valor_compra) || 0
         })
         
         if (tfoot) {
@@ -115,59 +202,84 @@ class RelatoriosModule {
         
         tbody.innerHTML = ''
         
-        if (dados.length === 0) {
+        if (!dados || dados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
+        // Agrupar vendas por data
         const vendasAgrupadas = this.agruparVendasPorData(dados)
-        let totalQuantidade = 0
-        let totalVendas = 0
-        let totalLucro = 0
+        let totalGeralQuantidade = 0
+        let totalGeralVendas = 0
+        let totalGeralLucro = 0
         
-        Object.entries(vendasAgrupadas).forEach(([data, vendas]) => {
+        // Ordenar datas em ordem decrescente
+        const datasOrdenadas = Object.keys(vendasAgrupadas).sort().reverse()
+        
+        datasOrdenadas.forEach(data => {
+            const vendas = vendasAgrupadas[data]
+            
+            // Variáveis para subtotal do dia
+            let subtotalQuantidade = 0
+            let subtotalVendas = 0
+            let subtotalLucro = 0
+            
+            // Renderizar cada venda do dia
             vendas.forEach(venda => {
                 const lucro = this.calcularLucro(venda)
                 const percentualLucro = this.calcularPercentualLucro(venda)
                 
                 const tr = document.createElement('tr')
                 tr.innerHTML = `
-                    <td>${formatters.formatDateTime(venda.data_venda)}</td>
-                    <td>${venda.descricao_produto}</td>
-                    <td>${venda.fornecedor}</td>
-                    <td>${venda.categoria}</td>
-                    <td>${venda.quantidade}</td>
+                    <td>${this.formatarDataHoraExibicao(venda.data_venda)}</td>
+                    <td>${venda.descricao_produto || '-'}</td>
+                    <td>${venda.fornecedor || '-'}</td>
+                    <td>${venda.categoria || '-'}</td>
+                    <td>${venda.quantidade || 0}</td>
                     <td>${formatters.formatCurrency(venda.valor_total)}</td>
                     <td>${percentualLucro.toFixed(2)}%</td>
                     <td>${formatters.formatCurrency(lucro)}</td>
                 `
                 tbody.appendChild(tr)
                 
-                totalQuantidade += venda.quantidade
-                totalVendas += parseFloat(venda.valor_total)
-                totalLucro += lucro
+                // Acumular subtotais do dia
+                subtotalQuantidade += venda.quantidade || 0
+                subtotalVendas += parseFloat(venda.valor_total) || 0
+                subtotalLucro += lucro
+                
+                // Acumular totais gerais
+                totalGeralQuantidade += venda.quantidade || 0
+                totalGeralVendas += parseFloat(venda.valor_total) || 0
+                totalGeralLucro += lucro
             })
             
-            const subtotal = vendas.reduce((sum, v) => sum + parseFloat(v.valor_total), 0)
+            // Adicionar linha de subtotal por data com todas as colunas
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
+            trSubtotal.style.borderTop = '2px solid #dee2e6'
             trSubtotal.innerHTML = `
-                <td colspan="5">Subtotal ${formatters.formatDate(new Date(data))}</td>
-                <td colspan="3">${formatters.formatCurrency(subtotal)}</td>
+                <td colspan="4" style="text-align: right;">
+                    <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
+                </td>
+                <td><strong>${subtotalQuantidade}</strong></td>
+                <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
+                <td>-</td>
+                <td><strong>${formatters.formatCurrency(subtotalLucro)}</strong></td>
             `
             tbody.appendChild(trSubtotal)
         })
         
+        // Adicionar linha de total geral no tfoot
         if (tfoot) {
             tfoot.innerHTML = `
-                <tr>
-                    <td colspan="4"><strong>TOTAL GERAL</strong></td>
-                    <td><strong>${totalQuantidade}</strong></td>
-                    <td><strong>${formatters.formatCurrency(totalVendas)}</strong></td>
+                <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
+                    <td colspan="4" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
+                    <td><strong>${totalGeralQuantidade}</strong></td>
+                    <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
                     <td>-</td>
-                    <td><strong>${formatters.formatCurrency(totalLucro)}</strong></td>
+                    <td><strong>${formatters.formatCurrency(totalGeralLucro)}</strong></td>
                 </tr>
             `
         }
@@ -183,23 +295,28 @@ class RelatoriosModule {
         let totalOK = 0
         let totalNaoOK = 0
         
-        if (dados.length === 0) {
+        if (!dados || dados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
-        dados.forEach(auditoria => {
+        // Ordenar por data (mais recente primeiro)
+        const dadosOrdenados = [...dados].sort((a, b) => 
+            new Date(b.data_auditoria) - new Date(a.data_auditoria)
+        )
+        
+        dadosOrdenados.forEach(auditoria => {
             const tr = document.createElement('tr')
-            const statusClass = auditoria.status === 'OK' ? 'status-ok' : 'status-nao-ok'
+            const statusClass = auditar.status === 'OK' ? 'status-ok' : 'status-nao-ok'
             
             tr.innerHTML = `
-                <td>${formatters.formatDateTime(auditoria.data_auditoria)}</td>
-                <td>${auditoria.codigo_produto}</td>
-                <td>${auditoria.descricao_produto}</td>
-                <td>${auditoria.categoria}</td>
-                <td>${auditoria.quantidade_fisica}</td>
-                <td><span class="status-badge ${statusClass}">${auditoria.status}</span></td>
+                <td>${this.formatarDataHoraExibicao(auditoria.data_auditoria)}</td>
+                <td>${auditoria.codigo_produto || '-'}</td>
+                <td>${auditoria.descricao_produto || '-'}</td>
+                <td>${auditoria.categoria || '-'}</td>
+                <td>${auditoria.quantidade_fisica || 0}</td>
+                <td><span class="status-badge ${statusClass}">${auditoria.status || '-'}</span></td>
             `
             tbody.appendChild(tr)
             
@@ -227,21 +344,26 @@ class RelatoriosModule {
         const agrupado = {}
         
         vendas.forEach(venda => {
-            const data = venda.data_venda.split('T')[0]
-            if (!agrupado[data]) {
-                agrupado[data] = []
+            const data = this.extrairDataLocal(venda.data_venda)
+            
+            if (data) {
+                if (!agrupado[data]) {
+                    agrupado[data] = []
+                }
+                agrupado[data].push(venda)
             }
-            agrupado[data].push(venda)
         })
         
         return agrupado
     }
     
     calcularLucro(venda) {
-        return parseFloat(venda.valor_total) * 0.3
+        // Estimativa de 30% de margem de lucro
+        return (parseFloat(venda.valor_total) || 0) * 0.3
     }
     
     calcularPercentualLucro(venda) {
+        // Margem fixa de 30%
         return 30
     }
     
@@ -279,7 +401,9 @@ class RelatoriosModule {
         if (!filtroTipo || !filtroData) return
         
         const tipoFiltro = filtroTipo.value
-        const dados = this[`dados${this.capitalizar(tipo)}`]
+        const dados = this[`dados${this.capitalizar(tipo)}`] || []
+        
+        console.log(`Preenchendo filtro para ${tipo}, tipo: ${tipoFiltro}, dados: ${dados.length}`)
         
         filtroData.innerHTML = '<option value="">Selecione...</option>'
         
@@ -287,14 +411,18 @@ class RelatoriosModule {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            const datasUnicas = [...new Set(dados.map(d => 
-                new Date(d[campoData]).toISOString().split('T')[0]
-            ))].sort().reverse()
+            // Usar extrairDataLocal para obter datas no fuso correto
+            const datasUnicas = [...new Set(dados.map(d => {
+                return this.extrairDataLocal(d[campoData])
+            }))].filter(d => d !== null).sort().reverse()
+            
+            console.log('Datas únicas encontradas:', datasUnicas)
             
             datasUnicas.forEach(data => {
                 const option = document.createElement('option')
                 option.value = data
-                option.textContent = formatters.formatDate(new Date(data))
+                const [ano, mes, dia] = data.split('-')
+                option.textContent = `${dia}/${mes}/${ano}`
                 filtroData.appendChild(option)
             })
         } else {
@@ -302,9 +430,8 @@ class RelatoriosModule {
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
             const mesesUnicos = [...new Set(dados.map(d => {
-                const date = new Date(d[campoData])
-                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-            }))].sort().reverse()
+                return this.extrairMesAnoLocal(d[campoData])
+            }))].filter(m => m !== null).sort().reverse()
             
             const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -320,20 +447,24 @@ class RelatoriosModule {
     }
     
     capitalizar(str) {
+        if (!str) return ''
         return str.charAt(0).toUpperCase() + str.slice(1)
     }
     
     aplicarFiltroCompras() {
+        console.log('Aplicando filtro de compras...')
         const dadosFiltrados = this.filtrarDados('compras')
         this.renderizarCompras(dadosFiltrados)
     }
     
     aplicarFiltroVendas() {
+        console.log('Aplicando filtro de vendas...')
         const dadosFiltrados = this.filtrarDados('vendas')
         this.renderizarVendas(dadosFiltrados)
     }
     
     aplicarFiltroAuditoria() {
+        console.log('Aplicando filtro de auditoria...')
         const dadosFiltrados = this.filtrarDados('auditoria')
         this.renderizarAuditoria(dadosFiltrados)
     }
@@ -343,49 +474,57 @@ class RelatoriosModule {
         const filtroData = document.getElementById(`filtroData${this.capitalizar(tipo)}`)
         
         if (!filtroTipo || !filtroData || !filtroData.value) {
-            return this[`dados${this.capitalizar(tipo)}`]
+            console.log('Filtro não selecionado, retornando todos os dados')
+            return this[`dados${this.capitalizar(tipo)}`] || []
         }
         
         const tipoFiltro = filtroTipo.value
-        const dados = this[`dados${this.capitalizar(tipo)}`]
+        const dados = this[`dados${this.capitalizar(tipo)}`] || []
         const valorFiltro = filtroData.value
+        
+        console.log(`Filtrando ${tipo}: tipo=${tipoFiltro}, valor=${valorFiltro}`)
         
         if (tipoFiltro === 'detalhado') {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            return dados.filter(d => {
-                return new Date(d[campoData]).toISOString().split('T')[0] === valorFiltro
+            const dadosFiltrados = dados.filter(d => {
+                const dataItem = this.extrairDataLocal(d[campoData])
+                return dataItem === valorFiltro
             })
+            
+            console.log(`Dados filtrados: ${dadosFiltrados.length} de ${dados.length}`)
+            return dadosFiltrados
         } else {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
             return dados.filter(d => {
-                const date = new Date(d[campoData])
-                const mesAno = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                const mesAno = this.extrairMesAnoLocal(d[campoData])
                 return mesAno === valorFiltro
             })
         }
     }
     
     exportarPDFCompras() {
-        this.exportarPDF('compras')
+        this.exportarPDF('compras', 'Relatório de Compras')
     }
     
     exportarPDFVendas() {
-        this.exportarPDF('vendas')
+        this.exportarPDF('vendas', 'Relatório de Vendas')
     }
     
     exportarPDFAuditoria() {
-        this.exportarPDF('auditoria')
+        this.exportarPDF('auditoria', 'Relatório de Auditoria')
     }
     
-    exportarPDF(tipo) {
-        const titulo = `Relatório de ${this.capitalizar(tipo)}`
+    exportarPDF(tipo, titulo) {
         const tabela = document.getElementById(`tabelaRelatorio${this.capitalizar(tipo)}`)
         
-        if (!tabela) return
+        if (!tabela) {
+            console.error('Tabela não encontrada')
+            return
+        }
         
         const printWindow = window.open('', '_blank')
         printWindow.document.write(`

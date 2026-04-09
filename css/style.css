@@ -961,3 +961,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
 }
+
+/* Estilo para subtotais no relatório de vendas */
+#tabelaRelatorioVendas tbody tr[style*="background-color"] {
+    background-color: #f0f4f8 !important;
+}
+
+#tabelaRelatorioVendas tbody tr[style*="background-color"] td {
+    padding: 10px 15px;
+}
+
+#tabelaRelatorioVendas tfoot tr {
+    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%) !important;
+    color: white !important;
+}
+
+#tabelaRelatorioVendas tfoot tr td {
+    color: white !important;
+    padding: 12px 15px;
+    font-size: 14px;
+}
