@@ -270,14 +270,12 @@ class VendasModule {
         try {
             console.log('Carregando itens de vendas do dia...')
             
-            // Buscar data de hoje
             const hoje = new Date()
             const ano = hoje.getFullYear()
             const mes = String(hoje.getMonth() + 1).padStart(2, '0')
             const dia = String(hoje.getDate()).padStart(2, '0')
             const dataHoje = `${ano}-${mes}-${dia}`
             
-            // Buscar todas as vendas
             const { data: vendas, error: vendasError } = await supabaseService.getVendas()
             
             if (vendasError) {
@@ -285,7 +283,6 @@ class VendasModule {
                 return
             }
             
-            // Filtrar vendas do dia
             const vendasDoDia = (vendas || []).filter(venda => {
                 if (!venda.data_venda) return false
                 const dataVenda = venda.data_venda.split('T')[0]
@@ -294,7 +291,6 @@ class VendasModule {
             
             console.log('Vendas do dia encontradas:', vendasDoDia.length)
             
-            // Buscar itens de cada venda do dia
             const todosItens = []
             
             for (const venda of vendasDoDia) {
@@ -306,23 +302,31 @@ class VendasModule {
                 }
                 
                 if (itens && itens.length > 0) {
-                    // Usar os dados dos itens (que têm fornecedor e categoria corretos)
-                    const itensComVenda = itens.map(item => ({
-                        ...item,
-                        venda_id: venda.id,
-                        numero_venda: venda.numero_venda,
-                        data_venda: venda.data_venda,
-                        // Usar fornecedor e categoria do ITEM, não da venda
-                        fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),
-                        categoria: item.categoria || this.getCategoriaProduto(item.produto_id)
-                    }))
+                    const itensComVenda = itens.map(item => {
+                        // Preservar valor_compra do item
+                        let valorCompra = item.valor_compra
+                        
+                        // Se não tiver, buscar do produto
+                        if (!valorCompra || valorCompra === 0) {
+                            valorCompra = this.buscarValorCompraProduto(item.codigo_produto)
+                        }
+                        
+                        return {
+                            ...item,
+                            venda_id: venda.id,
+                            numero_venda: venda.numero_venda,
+                            data_venda: venda.data_venda,
+                            fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),
+                            categoria: item.categoria || this.getCategoriaProduto(item.produto_id),
+                            valor_compra: valorCompra    // Preservar valor_compra
+                        }
+                    })
                     
                     todosItens.push(...itensComVenda)
                 }
             }
             
             console.log('Total de itens encontrados:', todosItens.length)
-            console.log('Primeiro item:', todosItens[0])
             
             this.renderizarVendasDoDia(todosItens)
             
@@ -494,7 +498,10 @@ class VendasModule {
 
     // Adicionar método para buscar valor de compra
     buscarValorCompraProduto(codigoProduto) {
-        if (!codigoProduto) return 0
+        if (!codigoProduto) {
+            console.log('Código do produto não fornecido')
+            return 0
+        }
         
         // Filtrar compras pelo código do produto
         const comprasProduto = this.compras.filter(c => c.codigo_produto === codigoProduto)
@@ -954,10 +961,12 @@ class VendasModule {
     async atualizarVendaExistente() {
         console.log('Atualizando venda existente...')
         
-        // Devolver itens antigos ao estoque
+        // Buscar itens antigos para devolver ao estoque
         const { data: itensAntigos } = await supabaseService.getItensVenda(this.vendaEditando.id)
         
         if (itensAntigos) {
+            console.log('Itens antigos:', itensAntigos)
+            
             for (const item of itensAntigos) {
                 const produto = this.produtos.find(p => p.id === item.produto_id)
                 if (produto) {
@@ -972,6 +981,7 @@ class VendasModule {
         
         const primeiroItem = this.itensVenda[0]
         
+        // Atualizar a venda (resumo)
         const vendaAtualizada = {
             data_venda: this.vendaEditando.data_venda,
             numero_venda: this.numeroVenda,
@@ -981,8 +991,8 @@ class VendasModule {
             categoria: primeiroItem.categoria,
             quantidade: this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0),
             valor_unitario: primeiroItem.valor_unitario,
-            desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
-            valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0)
+            desconto: this.itensVenda.reduce((sum, item) => sum + (item.desconto || 0), 0),
+            valor_total: this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0)
         }
         
         await supabaseService.updateVenda(this.vendaEditando.id, vendaAtualizada)
@@ -990,25 +1000,38 @@ class VendasModule {
         // Excluir itens antigos
         await supabaseService.deleteItensVenda(this.vendaEditando.id)
         
-        // Inserir novos itens com valor_compra
-        const itensParaInserir = this.itensVenda.map(item => ({
-            venda_id: this.vendaEditando.id,
-            produto_id: item.produto_id,
-            codigo_produto: item.codigo_produto,
-            descricao_produto: item.descricao_produto,
-            fornecedor: item.fornecedor,
-            categoria: item.categoria,
-            quantidade: item.quantidade,
-            valor_unitario: item.valor_unitario,
-            valor_compra: item.valor_compra || 0,    // Garantir que não seja undefined
-            desconto: item.desconto || 0,
-            valor_total: item.valor_total
-        }))
+        // Preparar novos itens PRESERVANDO o valor_compra
+        const itensParaInserir = this.itensVenda.map(item => {
+            // Garantir que o valor_compra não seja undefined ou null
+            const valorCompra = item.valor_compra || this.buscarValorCompraProduto(item.codigo_produto) || 0
+            
+            console.log('Item para inserir na atualização:', {
+                produto: item.descricao_produto,
+                valor_compra: valorCompra
+            })
+            
+            return {
+                venda_id: this.vendaEditando.id,
+                produto_id: item.produto_id,
+                codigo_produto: item.codigo_produto,
+                descricao_produto: item.descricao_produto,
+                fornecedor: item.fornecedor,
+                categoria: item.categoria,
+                quantidade: item.quantidade,
+                valor_unitario: item.valor_unitario,
+                valor_compra: valorCompra,           // Preservar valor_compra
+                desconto: item.desconto || 0,
+                valor_total: item.valor_total
+            }
+        })
         
-        console.log('Itens para atualizar:', itensParaInserir)
+        console.log('Itens a serem inseridos na atualização:', itensParaInserir)
         
         const { error } = await supabaseService.saveItensVenda(itensParaInserir)
-        if (error) throw error
+        if (error) {
+            console.error('Erro ao salvar itens atualizados:', error)
+            throw error
+        }
         
         // Subtrair novos itens do estoque
         for (const item of this.itensVenda) {
@@ -1021,12 +1044,15 @@ class VendasModule {
                 })
             }
         }
+        
+        console.log('Venda atualizada com sucesso!')
     }
     
     async editarItemVenda(vendaId, itemId) {
         try {
-            this.showLoading('Carregando item da venda...')
+            this.showLoading('Carregando itens da venda...')
             
+            // Buscar a venda
             const { data: vendas, error } = await supabaseService.getVendas()
             
             if (error) {
@@ -1042,6 +1068,7 @@ class VendasModule {
                 return
             }
             
+            // Buscar todos os itens desta venda
             const { data: itens, error: itensError } = await supabaseService.getItensVenda(vendaId)
             
             this.hideLoading()
@@ -1051,23 +1078,42 @@ class VendasModule {
                 return
             }
             
+            console.log('Itens carregados para edição:', itens)
+            
             this.vendaEditando = venda
             this.numeroVenda = venda.numero_venda
             this.setNumeroVenda()
             
-            // Carregar itens com fornecedor e categoria
-            this.itensVenda = (itens || []).map(item => ({
-                id: item.id,
-                produto_id: item.produto_id,
-                codigo_produto: item.codigo_produto,
-                descricao_produto: item.descricao_produto,
-                fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),      // Buscar do produto se não tiver
-                categoria: item.categoria || this.getCategoriaProduto(item.produto_id),        // Buscar do produto se não tiver
-                quantidade: item.quantidade,
-                valor_unitario: item.valor_unitario,
-                desconto: item.desconto,
-                valor_total: item.valor_total
-            }))
+            // Carregar itens PRESERVANDO o valor_compra original
+            this.itensVenda = (itens || []).map(item => {
+                // Se o item não tiver valor_compra, buscar do produto
+                let valorCompra = item.valor_compra
+                
+                if (!valorCompra || valorCompra === 0) {
+                    valorCompra = this.buscarValorCompraProduto(item.codigo_produto)
+                    console.log(`Valor de compra não encontrado no item, buscado do produto: ${valorCompra}`)
+                }
+                
+                console.log('Item carregado:', {
+                    produto: item.descricao_produto,
+                    valor_compra_original: item.valor_compra,
+                    valor_compra_final: valorCompra
+                })
+                
+                return {
+                    id: item.id,
+                    produto_id: item.produto_id,
+                    codigo_produto: item.codigo_produto,
+                    descricao_produto: item.descricao_produto,
+                    fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),
+                    categoria: item.categoria || this.getCategoriaProduto(item.produto_id),
+                    quantidade: item.quantidade,
+                    valor_unitario: item.valor_unitario,
+                    valor_compra: valorCompra,           // Preservar valor_compra original
+                    desconto: item.desconto || 0,
+                    valor_total: item.valor_total
+                }
+            })
             
             this.renderizarItensVenda()
             this.atualizarTotais()
@@ -1082,7 +1128,7 @@ class VendasModule {
         } catch (err) {
             this.hideLoading()
             console.error('Erro ao editar item:', err)
-            this.showError('Erro ao carregar item')
+            this.showError('Erro ao carregar itens da venda')
         }
     }
 
