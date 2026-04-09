@@ -102,7 +102,6 @@ export const supabaseService = {
     
     async saveVenda(venda, itens) {
         try {
-            // Primeiro, insere a venda
             const { data: vendaData, error: vendaError } = await supabase
                 .from('vendas')
                 .insert([venda])
@@ -119,26 +118,26 @@ export const supabaseService = {
             
             const vendaId = vendaData[0].id
             
-            // Preparar itens para inserção
             const itensParaInserir = itens.map(item => ({
                 venda_id: vendaId,
                 produto_id: item.produto_id,
                 codigo_produto: item.codigo_produto,
                 descricao_produto: item.descricao_produto,
+                fornecedor: item.fornecedor,
+                categoria: item.categoria,
                 quantidade: item.quantidade,
                 valor_unitario: item.valor_unitario,
+                valor_compra: item.valor_compra || 0,    // Salvar valor de compra
                 desconto: item.desconto || 0,
                 valor_total: item.valor_total
             }))
             
-            // Inserir itens da venda
             const { error: itensError } = await supabase
                 .from('itens_venda')
                 .insert(itensParaInserir)
             
             if (itensError) {
                 console.error('Erro ao salvar itens da venda:', itensError)
-                // Tentar deletar a venda se os itens falharem
                 await supabase.from('vendas').delete().eq('id', vendaId)
                 return { error: itensError }
             }
@@ -150,16 +149,25 @@ export const supabaseService = {
             return { error: err }
         }
     },
+
+    // Atualizar método saveItensVenda
+    async saveItensVenda(itens) {
+        const { data, error } = await supabase
+            .from('itens_venda')
+            .insert(itens)
+            .select()
+        return { data, error }
+    },
     
     // js/supabase-config.js - Adicionar novos métodos
 
     // Buscar itens de uma venda específica
     async getItensVenda(vendaId) {
-        const { data, error } = await supabase
-            .from('itens_venda')
-            .select('*')
-            .eq('venda_id', vendaId)
-        return { data, error }
+    const { data, error } = await supabase
+        .from('itens_venda')
+        .select('*')
+        .eq('venda_id', vendaId)
+    return { data, error }
     },
 
     // Excluir itens de uma venda
@@ -196,6 +204,25 @@ export const supabaseService = {
             .delete()
             .eq('id', id)
         return { error }
+    },
+
+    // Buscar todos os itens de venda
+    async getAllItensVenda() {
+        const { data, error } = await supabase
+            .from('itens_venda')
+            .select('*')
+            .order('created_at', { ascending: false })
+        return { data, error }
+    },
+
+    // Buscar produto por ID
+    async getProdutoById(id) {
+        const { data, error } = await supabase
+            .from('produtos')
+            .select('*')
+            .eq('id', id)
+            .single()
+        return { data, error }
     },
     
     // Auditoria

@@ -54,7 +54,6 @@ class RelatoriosModule {
     formatarDataExibicao(dataString) {
         if (!dataString) return '-'
         
-        // Se já estiver no formato YYYY-MM-DD
         if (typeof dataString === 'string' && dataString.match(/^\d{4}-\d{2}-\d{2}$/)) {
             const [ano, mes, dia] = dataString.split('-')
             return `${dia}/${mes}/${ano}`
@@ -105,25 +104,78 @@ class RelatoriosModule {
     
     async carregarVendas() {
         try {
-            const { data, error } = await supabaseService.getVendas()
+            // Buscar todas as vendas
+            const { data: vendas, error: vendasError } = await supabaseService.getVendas()
             
-            if (error) {
-                console.error('Erro ao carregar vendas:', error)
+            if (vendasError) {
+                console.error('Erro ao carregar vendas:', vendasError)
                 return
             }
             
-            this.dadosVendas = data || []
-            console.log('Vendas carregadas:', this.dadosVendas.length)
+            // Buscar todos os itens de venda
+            const { data: itens, error: itensError } = await supabaseService.getAllItensVenda()
             
-            // Log para debug das datas
-            this.dadosVendas.forEach(venda => {
-                console.log('Data original:', venda.data_venda, '→ Data extraída:', this.extrairDataLocal(venda.data_venda))
-            })
+            if (itensError) {
+                console.error('Erro ao carregar itens de venda:', itensError)
+                return
+            }
+            
+            console.log('Vendas carregadas:', vendas?.length || 0)
+            console.log('Itens carregados:', itens?.length || 0)
+            
+            // Combinar itens com informações da venda
+            const itensComVenda = []
+            
+            for (const item of (itens || [])) {
+                const venda = (vendas || []).find(v => v.id === item.venda_id)
+                
+                if (venda) {
+                    // Usar fornecedor e categoria do ITEM (que está correto)
+                    // Se por algum motivo não tiver no item, buscar do produto
+                    let fornecedor = item.fornecedor
+                    let categoria = item.categoria
+                    
+                    // Se não tiver no item, tentar buscar do produto
+                    if (!fornecedor || !categoria) {
+                        const produto = await this.buscarProdutoPorId(item.produto_id)
+                        fornecedor = fornecedor || produto?.fornecedor || venda.fornecedor || '-'
+                        categoria = categoria || produto?.categoria || venda.categoria || '-'
+                    }
+                    
+                    itensComVenda.push({
+                        ...item,
+                        numero_venda: venda.numero_venda,
+                        data_venda: venda.data_venda,
+                        fornecedor: fornecedor,
+                        categoria: categoria
+                    })
+                }
+            }
+            
+            this.dadosVendas = itensComVenda
+            console.log('Itens de venda combinados:', this.dadosVendas.length)
+            console.log('Primeiro item combinado:', this.dadosVendas[0])
             
             this.renderizarVendas(this.dadosVendas)
             this.preencherFiltroDatas('vendas')
+            
         } catch (err) {
             console.error('Erro ao carregar vendas:', err)
+        }
+    }
+
+    // Adicionar método para buscar produto por ID
+    async buscarProdutoPorId(produtoId) {
+        try {
+            const { data, error } = await supabaseService.getProdutoById(produtoId)
+            if (error) {
+                console.error('Erro ao buscar produto:', error)
+                return null
+            }
+            return data
+        } catch (err) {
+            console.error('Erro ao buscar produto:', err)
+            return null
         }
     }
     
@@ -161,7 +213,6 @@ class RelatoriosModule {
             return
         }
         
-        // Ordenar por data (mais recente primeiro)
         const dadosOrdenados = [...dados].sort((a, b) => 
             new Date(b.data_compra) - new Date(a.data_compra)
         )
@@ -198,87 +249,99 @@ class RelatoriosModule {
         const tbody = document.getElementById('tbodyRelatorioVendas')
         const tfoot = document.getElementById('tfootRelatorioVendas')
         
-        if (!tbody) return
+        if (!tbody) {
+            console.error('tbody não encontrado')
+            return
+        }
         
         tbody.innerHTML = ''
         
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
-        // Agrupar vendas por data
-        const vendasAgrupadas = this.agruparVendasPorData(dados)
+        const itensAgrupados = this.agruparItensPorData(dados)
         let totalGeralQuantidade = 0
         let totalGeralVendas = 0
+        let totalGeralCusto = 0
         let totalGeralLucro = 0
         
-        // Ordenar datas em ordem decrescente
-        const datasOrdenadas = Object.keys(vendasAgrupadas).sort().reverse()
+        const datasOrdenadas = Object.keys(itensAgrupados).sort().reverse()
         
         datasOrdenadas.forEach(data => {
-            const vendas = vendasAgrupadas[data]
+            const itens = itensAgrupados[data]
             
-            // Variáveis para subtotal do dia
             let subtotalQuantidade = 0
             let subtotalVendas = 0
+            let subtotalCusto = 0
             let subtotalLucro = 0
             
-            // Renderizar cada venda do dia
-            vendas.forEach(venda => {
-                const lucro = this.calcularLucro(venda)
-                const percentualLucro = this.calcularPercentualLucro(venda)
+            itens.forEach(item => {
+                const lucro = this.calcularLucroItem(item)
+                const percentualLucro = this.calcularPercentualLucroItem(item)
+                const custoTotal = (parseFloat(item.valor_compra) || 0) * (item.quantidade || 0)
+                
+                const fornecedor = item.fornecedor || '-'
+                const categoria = item.categoria || '-'
                 
                 const tr = document.createElement('tr')
                 tr.innerHTML = `
-                    <td>${this.formatarDataHoraExibicao(venda.data_venda)}</td>
-                    <td>${venda.descricao_produto || '-'}</td>
-                    <td>${venda.fornecedor || '-'}</td>
-                    <td>${venda.categoria || '-'}</td>
-                    <td>${venda.quantidade || 0}</td>
-                    <td>${formatters.formatCurrency(venda.valor_total)}</td>
+                    <td>${this.formatarDataHoraExibicao(item.data_venda)}</td>
+                    <td>${item.numero_venda || '-'}</td>
+                    <td>${item.descricao_produto || '-'}</td>
+                    <td>${fornecedor}</td>
+                    <td>${categoria}</td>
+                    <td>${item.quantidade || 0}</td>
+                    <td>${formatters.formatCurrency(item.valor_unitario)}</td>
+                    <td>${formatters.formatCurrency(item.desconto || 0)}</td>
+                    <td>${formatters.formatCurrency(item.valor_total)}</td>
                     <td>${percentualLucro.toFixed(2)}%</td>
                     <td>${formatters.formatCurrency(lucro)}</td>
                 `
                 tbody.appendChild(tr)
                 
-                // Acumular subtotais do dia
-                subtotalQuantidade += venda.quantidade || 0
-                subtotalVendas += parseFloat(venda.valor_total) || 0
+                subtotalQuantidade += item.quantidade || 0
+                subtotalVendas += parseFloat(item.valor_total) || 0
+                subtotalCusto += custoTotal
                 subtotalLucro += lucro
                 
-                // Acumular totais gerais
-                totalGeralQuantidade += venda.quantidade || 0
-                totalGeralVendas += parseFloat(venda.valor_total) || 0
+                totalGeralQuantidade += item.quantidade || 0
+                totalGeralVendas += parseFloat(item.valor_total) || 0
+                totalGeralCusto += custoTotal
                 totalGeralLucro += lucro
             })
             
-            // Adicionar linha de subtotal por data com todas as colunas
+            const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
+            
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
             trSubtotal.style.borderTop = '2px solid #dee2e6'
             trSubtotal.innerHTML = `
-                <td colspan="4" style="text-align: right;">
+                <td colspan="5" style="text-align: right;">
                     <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
                 </td>
                 <td><strong>${subtotalQuantidade}</strong></td>
+                <td colspan="2"></td>
                 <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
-                <td>-</td>
+                <td><strong>${percentualMedioLucro.toFixed(2)}%</strong></td>
                 <td><strong>${formatters.formatCurrency(subtotalLucro)}</strong></td>
             `
             tbody.appendChild(trSubtotal)
         })
         
-        // Adicionar linha de total geral no tfoot
+        const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
+        
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
-                    <td colspan="4" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
+                    <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
                     <td><strong>${totalGeralQuantidade}</strong></td>
+                    <td colspan="2"></td>
                     <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
-                    <td>-</td>
+                    <td><strong>${percentualMedioGeral.toFixed(2)}%</strong></td>
                     <td><strong>${formatters.formatCurrency(totalGeralLucro)}</strong></td>
                 </tr>
             `
@@ -301,7 +364,6 @@ class RelatoriosModule {
             return
         }
         
-        // Ordenar por data (mais recente primeiro)
         const dadosOrdenados = [...dados].sort((a, b) => 
             new Date(b.data_auditoria) - new Date(a.data_auditoria)
         )
@@ -357,14 +419,61 @@ class RelatoriosModule {
         return agrupado
     }
     
+    agruparItensPorData(itens) {
+        const agrupado = {}
+        
+        itens.forEach(item => {
+            const data = this.extrairDataLocal(item.data_venda)
+            
+            if (data) {
+                if (!agrupado[data]) {
+                    agrupado[data] = []
+                }
+                agrupado[data].push(item)
+            }
+        })
+        
+        return agrupado
+    }
+    
     calcularLucro(venda) {
-        // Estimativa de 30% de margem de lucro
         return (parseFloat(venda.valor_total) || 0) * 0.3
     }
     
     calcularPercentualLucro(venda) {
-        // Margem fixa de 30%
         return 30
+    }
+    
+    calcularLucroItem(item) {
+        const valorTotal = parseFloat(item.valor_total) || 0
+        const desconto = parseFloat(item.desconto) || 0
+        const valorCompraUnitario = parseFloat(item.valor_compra) || 0
+        const quantidade = item.quantidade || 0
+        
+        // Custo total = valor de compra unitário * quantidade
+        const custoTotal = valorCompraUnitario * quantidade
+        
+        // Lucro = Valor Total - Desconto - Custo Total
+        const lucro = valorTotal - desconto - custoTotal
+        
+        return Math.max(0, lucro)
+    }
+    
+    calcularPercentualLucroItem(item) {
+        const valorTotal = parseFloat(item.valor_total) || 0
+        const desconto = parseFloat(item.desconto) || 0
+        const valorCompraUnitario = parseFloat(item.valor_compra) || 0
+        const quantidade = item.quantidade || 0
+        
+        const valorLiquido = valorTotal - desconto
+        const custoTotal = valorCompraUnitario * quantidade
+        
+        if (custoTotal <= 0) return 0
+        
+        // Percentual de lucro = (Valor Líquido - Custo) / Custo * 100
+        const percentual = ((valorLiquido - custoTotal) / custoTotal) * 100
+        
+        return Math.max(0, percentual)
     }
     
     setupFiltrosCompras() {
@@ -407,16 +516,31 @@ class RelatoriosModule {
         
         filtroData.innerHTML = '<option value="">Selecione...</option>'
         
+        if (dados.length === 0) {
+            const option = document.createElement('option')
+            option.value = ''
+            option.textContent = 'Nenhum dado disponível'
+            filtroData.appendChild(option)
+            return
+        }
+        
         if (tipoFiltro === 'detalhado') {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            // Usar extrairDataLocal para obter datas no fuso correto
             const datasUnicas = [...new Set(dados.map(d => {
                 return this.extrairDataLocal(d[campoData])
             }))].filter(d => d !== null).sort().reverse()
             
             console.log('Datas únicas encontradas:', datasUnicas)
+            
+            if (datasUnicas.length === 0) {
+                const option = document.createElement('option')
+                option.value = ''
+                option.textContent = 'Nenhuma data disponível'
+                filtroData.appendChild(option)
+                return
+            }
             
             datasUnicas.forEach(data => {
                 const option = document.createElement('option')
@@ -432,6 +556,14 @@ class RelatoriosModule {
             const mesesUnicos = [...new Set(dados.map(d => {
                 return this.extrairMesAnoLocal(d[campoData])
             }))].filter(m => m !== null).sort().reverse()
+            
+            if (mesesUnicos.length === 0) {
+                const option = document.createElement('option')
+                option.value = ''
+                option.textContent = 'Nenhum mês disponível'
+                filtroData.appendChild(option)
+                return
+            }
             
             const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
