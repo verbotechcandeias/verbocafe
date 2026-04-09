@@ -414,17 +414,14 @@ class VendasModule {
         
         const itemExistente = this.itensVenda.find(item => item.produto_id === produtoId)
         if (itemExistente) {
-            this.showError('Este produto já foi adicionado à venda')
+            this.showError('Este produto já foi adicionado à venda. Edite a quantidade na lista abaixo.')
             return
         }
         
-        // Verificar estoque considerando edição
+        // Verificar estoque
         let quantidadeDisponivel = produto.quantidade
         if (this.vendaEditando) {
-            const itemOriginal = this.itensVenda.find(i => i.produto_id === produtoId)
-            if (itemOriginal) {
-                quantidadeDisponivel += itemOriginal.quantidade
-            }
+            quantidadeDisponivel = 999 // Sem limite durante edição
         }
         
         if (quantidade > quantidadeDisponivel) {
@@ -452,7 +449,7 @@ class VendasModule {
         this.limparFormProduto()
         this.atualizarTotais()
     }
-    
+
     renderizarItensVenda() {
         const tbody = document.getElementById('tbodyItensVenda')
         if (!tbody) return
@@ -463,9 +460,31 @@ class VendasModule {
             const tr = document.createElement('tr')
             tr.innerHTML = `
                 <td>${item.descricao_produto}</td>
-                <td>${item.quantidade}</td>
+                <td>
+                    <div class="quantidade-editor">
+                        <button class="btn-qtd" onclick="vendasModule.diminuirQuantidade(${index})" title="Diminuir">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" 
+                            class="input-qtd" 
+                            value="${item.quantidade}" 
+                            min="1" 
+                            max="${this.getEstoqueDisponivel(item.produto_id)}"
+                            onchange="vendasModule.atualizarQuantidadeItem(${index}, this.value)"
+                            onclick="this.select()">
+                        <button class="btn-qtd" onclick="vendasModule.aumentarQuantidade(${index})" title="Aumentar">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </td>
                 <td>${formatters.formatCurrency(item.valor_unitario)}</td>
-                <td>${formatters.formatCurrency(item.desconto)}</td>
+                <td>
+                    <input type="text" 
+                        class="input-desconto" 
+                        value="${formatters.formatCurrency(item.desconto)}" 
+                        onchange="vendasModule.atualizarDescontoItem(${index}, this.value)"
+                        onclick="this.select()">
+                </td>
                 <td>${formatters.formatCurrency(item.valor_total)}</td>
                 <td>
                     <button class="btn-icon" onclick="vendasModule.removerItem(${index})" title="Remover">
@@ -475,6 +494,225 @@ class VendasModule {
             `
             tbody.appendChild(tr)
         })
+        
+        this.adicionarEstilosQuantidade()
+    }
+
+    // Adicionar método para estilos
+    adicionarEstilosQuantidade() {
+        if (document.querySelector('#qtd-editor-styles')) return
+        
+        const style = document.createElement('style')
+        style.id = 'qtd-editor-styles'
+        style.textContent = `
+            .quantidade-editor {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                min-width: 120px;
+            }
+            
+            .btn-qtd {
+                width: 32px;
+                height: 32px;
+                border: 1px solid #ddd;
+                background: white;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                font-size: 12px;
+                color: #666;
+            }
+            
+            .btn-qtd:hover {
+                background: #f0f0f0;
+                border-color: #8B4513;
+                color: #8B4513;
+            }
+            
+            .input-qtd {
+                width: 60px;
+                height: 32px;
+                text-align: center;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 0 5px;
+            }
+            
+            .input-qtd:focus {
+                outline: none;
+                border-color: #8B4513;
+                box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.1);
+            }
+            
+            .input-desconto {
+                width: 100px;
+                height: 32px;
+                text-align: right;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                padding: 0 8px;
+            }
+            
+            .input-desconto:focus {
+                outline: none;
+                border-color: #8B4513;
+                box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.1);
+            }
+            
+            /* Remover setas do input number */
+            .input-qtd::-webkit-outer-spin-button,
+            .input-qtd::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            
+            .input-qtd[type=number] {
+                -moz-appearance: textfield;
+                appearance: textfield;
+            }
+        `
+        document.head.appendChild(style)
+    }
+
+    // Método para obter estoque disponível
+    getEstoqueDisponivel(produtoId) {
+        const produto = this.produtos.find(p => p.id === produtoId)
+        if (!produto) return 999
+        
+        // Se estiver editando, considerar a quantidade já alocada
+        let estoqueBase = produto.quantidade
+        
+        if (this.vendaEditando) {
+            // Na edição, o estoque já considera os itens originais
+            return 999 // Permitir qualquer quantidade durante edição
+        }
+        
+        return estoqueBase
+    }
+
+    // Aumentar quantidade
+    aumentarQuantidade(index) {
+        const item = this.itensVenda[index]
+        if (!item) return
+        
+        const produto = this.produtos.find(p => p.id === item.produto_id)
+        if (!produto) return
+        
+        // Verificar limite de estoque
+        let limite = produto.quantidade
+        if (this.vendaEditando) {
+            limite = 999 // Sem limite durante edição
+        }
+        
+        if (item.quantidade < limite) {
+            item.quantidade++
+            this.recalcularItem(item)
+            this.renderizarItensVenda()
+            this.atualizarTotais()
+        } else {
+            this.showError(`Quantidade máxima disponível: ${limite}`)
+        }
+    }
+
+    // Diminuir quantidade
+    diminuirQuantidade(index) {
+        const item = this.itensVenda[index]
+        if (!item) return
+        
+        if (item.quantidade > 1) {
+            item.quantidade--
+            this.recalcularItem(item)
+            this.renderizarItensVenda()
+            this.atualizarTotais()
+        }
+    }
+
+    // Atualizar quantidade pelo input
+    atualizarQuantidadeItem(index, novaQuantidade) {
+        const item = this.itensVenda[index]
+        if (!item) return
+        
+        let quantidade = parseInt(novaQuantidade) || 1
+        
+        // Validar quantidade mínima
+        if (quantidade < 1) {
+            quantidade = 1
+        }
+        
+        // Validar estoque
+        const produto = this.produtos.find(p => p.id === item.produto_id)
+        if (produto && !this.vendaEditando) {
+            if (quantidade > produto.quantidade) {
+                this.showError(`Quantidade máxima disponível: ${produto.quantidade}`)
+                quantidade = produto.quantidade
+            }
+        }
+        
+        item.quantidade = quantidade
+        this.recalcularItem(item)
+        this.renderizarItensVenda()
+        this.atualizarTotais()
+    }
+
+    // Atualizar desconto pelo input
+    atualizarDescontoItem(index, novoDesconto) {
+        const item = this.itensVenda[index]
+        if (!item) return
+        
+        // Parse do valor do desconto
+        let desconto = this.parseCurrency(novoDesconto)
+        
+        if (isNaN(desconto) || desconto < 0) {
+            desconto = 0
+        }
+        
+        // Validar se o desconto não é maior que o valor total
+        const valorBruto = item.quantidade * item.valor_unitario
+        if (desconto > valorBruto) {
+            desconto = valorBruto
+            this.showError('Desconto não pode ser maior que o valor total')
+        }
+        
+        item.desconto = desconto
+        this.recalcularItem(item)
+        this.renderizarItensVenda()
+        this.atualizarTotais()
+    }
+
+    // Recalcular valor total do item
+    recalcularItem(item) {
+        const valorBruto = item.quantidade * item.valor_unitario
+        item.valor_total = Math.max(0, valorBruto - item.desconto)
+    }
+
+    // Atualizar o método removerItem para não precisar de confirmação
+    removerItem(index) {
+        if (confirm('Remover este item da venda?')) {
+            this.itensVenda.splice(index, 1)
+            this.renderizarItensVenda()
+            this.atualizarTotais()
+        }
+    }
+
+    // Atualizar o método atualizarTotais para formato correto
+    atualizarTotais() {
+        const totalQuantidade = this.itensVenda.reduce((sum, item) => sum + item.quantidade, 0)
+        const totalDesconto = this.itensVenda.reduce((sum, item) => sum + (item.desconto || 0), 0)
+        const totalVenda = this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0)
+        
+        const totalQtdEl = document.getElementById('totalQuantidade')
+        const totalDescEl = document.getElementById('totalDesconto')
+        const totalVendaEl = document.getElementById('totalVenda')
+        
+        if (totalQtdEl) totalQtdEl.textContent = totalQuantidade
+        if (totalDescEl) totalDescEl.textContent = formatters.formatCurrency(totalDesconto)
+        if (totalVendaEl) totalVendaEl.textContent = formatters.formatCurrency(totalVenda)
     }
     
     removerItem(index) {
