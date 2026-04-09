@@ -556,7 +556,9 @@ class VendasModule {
             this.hideLoading()
             this.showSuccess(this.vendaEditando ? 'Venda atualizada com sucesso!' : 'Venda realizada com sucesso!')
             
-            this.cancelarVenda()
+            // Limpar o formulário sem perguntar (venda já foi realizada)
+            this.limparVenda()
+            
             await this.carregarProdutos()
             await this.carregarVendasDoDia()
             
@@ -565,6 +567,18 @@ class VendasModule {
             console.error('Erro ao realizar venda:', err)
             this.showError('Erro ao realizar venda: ' + err.message)
         }
+    }
+
+    // Novo método para limpar a venda sem confirmação (usado após realizar venda com sucesso)
+    limparVenda() {
+        this.itensVenda = []
+        this.vendaEditando = null
+        this.limparFormProduto()
+        this.renderizarItensVenda()
+        this.atualizarTotais()
+        this.numeroVenda = this.gerarNumeroVenda()
+        this.setNumeroVenda()
+        this.setDataVenda()
     }
     
     async criarNovaVenda() {
@@ -865,16 +879,18 @@ class VendasModule {
     }
     
     cancelarVenda() {
+        // Só pergunta se houver itens na venda ou estiver editando
         if (this.itensVenda.length > 0 || this.vendaEditando) {
             const mensagem = this.vendaEditando ? 
-                'Cancelar edição da venda?' : 
-                'Cancelar esta venda?'
+                'Cancelar edição da venda? Os itens não serão salvos.' : 
+                'Cancelar esta venda? Os itens adicionados serão perdidos.'
             
             if (!confirm(mensagem)) {
                 return
             }
         }
         
+        // Se chegou aqui, o usuário confirmou o cancelamento
         this.itensVenda = []
         this.vendaEditando = null
         this.limparFormProduto()
@@ -883,6 +899,11 @@ class VendasModule {
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
         this.setDataVenda()
+    }
+
+    // Método para o botão Cancelar (chamado pelo onclick)
+    async cancelarVendaBtn() {
+        this.cancelarVenda()
     }
     
     showLoading(message = 'Processando...') {
