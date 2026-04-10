@@ -354,9 +354,10 @@ class RelatoriosModule {
         tbody.innerHTML = ''
         let totalOK = 0
         let totalNaoOK = 0
+        let totalItens = 0
         
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
@@ -368,8 +369,9 @@ class RelatoriosModule {
         
         dadosOrdenados.forEach(auditoria => {
             const tr = document.createElement('tr')
-            // CORREÇÃO: auditar -> auditoria
             const statusClass = auditoria.status === 'OK' ? 'status-ok' : 'status-nao-ok'
+            const diferenca = (auditoria.quantidade_fisica || 0) - (auditoria.quantidade_sistema || 0)
+            const diferencaFormatada = diferenca > 0 ? `+${diferenca}` : diferenca
             
             tr.innerHTML = `
                 <td>${this.formatarDataHoraExibicao(auditoria.data_auditoria)}</td>
@@ -377,10 +379,15 @@ class RelatoriosModule {
                 <td>${auditoria.descricao_produto || '-'}</td>
                 <td>${auditoria.categoria || '-'}</td>
                 <td>${auditoria.quantidade_fisica || 0}</td>
+                <td>${auditoria.quantidade_sistema || 0}</td>
+                <td style="color: ${diferenca === 0 ? 'green' : (diferenca > 0 ? 'blue' : 'red')}; font-weight: 500;">
+                    ${diferencaFormatada}
+                </td>
                 <td><span class="status-badge ${statusClass}">${auditoria.status || '-'}</span></td>
             `
             tbody.appendChild(tr)
             
+            totalItens++
             if (auditoria.status === 'OK') {
                 totalOK++
             } else {
@@ -391,7 +398,9 @@ class RelatoriosModule {
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr>
-                    <td colspan="5"><strong>RESUMO</strong></td>
+                    <td colspan="4"><strong>RESUMO</strong></td>
+                    <td><strong>Total de itens: ${totalItens}</strong></td>
+                    <td colspan="2"></td>
                     <td>
                         <span class="badge badge-success">OK: ${totalOK}</span>
                         <span class="badge badge-danger" style="margin-left: 10px;">NÃO OK: ${totalNaoOK}</span>
@@ -651,8 +660,8 @@ class RelatoriosModule {
     }
     
     exportarPDF(tipo, titulo) {
-        const tabela = document.getElementById(`tabelaRelatorio${this.capitalizar(tipo)}`)
-        
+        const tabela = document.getElementById('tabelaRelatorioAuditoria')
+    
         if (!tabela) {
             console.error('Tabela não encontrada')
             return
@@ -663,7 +672,7 @@ class RelatoriosModule {
             <!DOCTYPE html>
             <html>
                 <head>
-                    <title>${titulo} - Verbo Café</title>
+                    <title>Relatório de Auditoria - Verbo Café</title>
                     <style>
                         body {
                             font-family: Arial, sans-serif;
@@ -720,7 +729,7 @@ class RelatoriosModule {
                 </head>
                 <body>
                     <div class="header">
-                        <h1>Verbo Café - ${titulo}</h1>
+                        <h1>Verbo Café - Relatório de Auditoria</h1>
                         <p><strong>Data de emissão:</strong> ${formatters.formatDateTime(new Date())}</p>
                     </div>
                     ${tabela.outerHTML}
