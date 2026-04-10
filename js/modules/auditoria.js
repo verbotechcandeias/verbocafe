@@ -115,7 +115,8 @@ class AuditoriaModule {
         this.produtos.forEach(produto => {
             const option = document.createElement('option')
             option.value = produto.id
-            option.textContent = `${produto.descricao_produto} (Sistema: ${produto.quantidade})`
+            // REMOVIDO: (Sistema: ${produto.quantidade})
+            option.textContent = produto.descricao_produto
             option.dataset.codigo = produto.codigo_produto
             option.dataset.categoria = produto.categoria
             option.dataset.quantidadeSistema = produto.quantidade

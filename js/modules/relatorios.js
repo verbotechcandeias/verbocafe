@@ -361,13 +361,15 @@ class RelatoriosModule {
             return
         }
         
+        // Ordenar por data (mais recente primeiro)
         const dadosOrdenados = [...dados].sort((a, b) => 
             new Date(b.data_auditoria) - new Date(a.data_auditoria)
         )
         
         dadosOrdenados.forEach(auditoria => {
             const tr = document.createElement('tr')
-            const statusClass = auditar.status === 'OK' ? 'status-ok' : 'status-nao-ok'
+            // CORREÇÃO: auditar -> auditoria
+            const statusClass = auditoria.status === 'OK' ? 'status-ok' : 'status-nao-ok'
             
             tr.innerHTML = `
                 <td>${this.formatarDataHoraExibicao(auditoria.data_auditoria)}</td>
