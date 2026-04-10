@@ -1,6 +1,7 @@
 // js/modules/relatorios.js
 import { supabaseService } from '../supabase-config.js'
 import * as formatters from '../utils/formatters.js'
+import * as dateTime from '../utils/datetime.js'
 
 class RelatoriosModule {
     constructor() {
@@ -26,62 +27,20 @@ class RelatoriosModule {
     
     // Método para extrair data no formato YYYY-MM-DD considerando fuso local
     extrairDataLocal(dataString) {
-        if (!dataString) return null
-        
-        const data = new Date(dataString)
-        if (isNaN(data.getTime())) return null
-        
-        const ano = data.getFullYear()
-        const mes = String(data.getMonth() + 1).padStart(2, '0')
-        const dia = String(data.getDate()).padStart(2, '0')
-        
-        return `${ano}-${mes}-${dia}`
+        return dateTime.extrairDataLocal(dataString)
     }
     
     // Método para extrair mês/ano no formato YYYY-MM
     extrairMesAnoLocal(dataString) {
-        if (!dataString) return null
-        
-        const data = new Date(dataString)
-        if (isNaN(data.getTime())) return null
-        
-        const ano = data.getFullYear()
-        const mes = String(data.getMonth() + 1).padStart(2, '0')
-        
-        return `${ano}-${mes}`
+        return dateTime.extrairMesAnoLocal(dataString)
     }
     
     formatarDataExibicao(dataString) {
-        if (!dataString) return '-'
-        
-        if (typeof dataString === 'string' && dataString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [ano, mes, dia] = dataString.split('-')
-            return `${dia}/${mes}/${ano}`
-        }
-        
-        const data = new Date(dataString)
-        if (isNaN(data.getTime())) return '-'
-        
-        const dia = String(data.getDate()).padStart(2, '0')
-        const mes = String(data.getMonth() + 1).padStart(2, '0')
-        const ano = data.getFullYear()
-        
-        return `${dia}/${mes}/${ano}`
+        return dateTime.formatDate(dataString)
     }
     
     formatarDataHoraExibicao(dataString) {
-        if (!dataString) return '-'
-        
-        const data = new Date(dataString)
-        if (isNaN(data.getTime())) return '-'
-        
-        const dia = String(data.getDate()).padStart(2, '0')
-        const mes = String(data.getMonth() + 1).padStart(2, '0')
-        const ano = data.getFullYear()
-        const horas = String(data.getHours()).padStart(2, '0')
-        const minutos = String(data.getMinutes()).padStart(2, '0')
-        
-        return `${dia}/${mes}/${ano} ${horas}:${minutos}`
+        return dateTime.formatDateTime(dataString)
     }
     
     async carregarCompras() {
@@ -130,34 +89,32 @@ class RelatoriosModule {
                 const venda = (vendas || []).find(v => v.id === item.venda_id)
                 
                 if (venda) {
-                    // Usar fornecedor e categoria do ITEM (que está correto)
                     let fornecedor = item.fornecedor
                     let categoria = item.categoria
                     
-                    // Se não tiver no item, tentar buscar do produto
                     if (!fornecedor || !categoria) {
                         const produto = await this.buscarProdutoPorId(item.produto_id)
                         fornecedor = fornecedor || produto?.fornecedor || venda.fornecedor || '-'
                         categoria = categoria || produto?.categoria || venda.categoria || '-'
                     }
                     
-                    // Obter forma de pagamento (do item ou da venda)
                     const formaPagamento = item.forma_pagamento || venda.forma_pagamento || '-'
                     
                     itensComVenda.push({
                         ...item,
                         numero_venda: venda.numero_venda,
-                        data_venda: venda.data_venda,
+                        data_venda: venda.data_venda,  // Passar a data original
                         fornecedor: fornecedor,
                         categoria: categoria,
-                        forma_pagamento: formaPagamento  // Adicionar forma de pagamento
+                        forma_pagamento: formaPagamento
                     })
                 }
             }
             
             this.dadosVendas = itensComVenda
             console.log('Itens de venda combinados:', this.dadosVendas.length)
-            console.log('Primeiro item combinado:', this.dadosVendas[0])
+            console.log('Primeiro item - data original:', this.dadosVendas[0]?.data_venda)
+            console.log('Primeiro item - data formatada:', dateTime.formatDateTime(this.dadosVendas[0]?.data_venda))
             
             this.renderizarVendas(this.dadosVendas)
             this.preencherFiltroDatas('vendas')
@@ -278,13 +235,11 @@ class RelatoriosModule {
         datasOrdenadas.forEach(data => {
             const itens = itensAgrupados[data]
             
-            // Variáveis para subtotal do dia
             let subtotalQuantidade = 0
             let subtotalVendas = 0
             let subtotalCusto = 0
             let subtotalLucro = 0
             
-            // Renderizar cada item do dia
             itens.forEach(item => {
                 const lucro = this.calcularLucroItem(item)
                 const percentualLucro = this.calcularPercentualLucroItem(item)
@@ -294,7 +249,6 @@ class RelatoriosModule {
                 const categoria = item.categoria || '-'
                 const formaPagamento = item.forma_pagamento || '-'
                 
-                // Definir classe de estilo para forma de pagamento
                 let formaPagamentoClass = ''
                 if (formaPagamento === 'Pendente') {
                     formaPagamentoClass = 'badge badge-warning'
@@ -304,9 +258,12 @@ class RelatoriosModule {
                     formaPagamentoClass = 'badge badge-info'
                 }
                 
+                // USAR dateTime.formatDateTime para consistência
+                const dataHoraFormatada = dateTime.formatDateTime(item.data_venda)
+                
                 const tr = document.createElement('tr')
                 tr.innerHTML = `
-                    <td>${this.formatarDataHoraExibicao(item.data_venda)}</td>
+                    <td>${dataHoraFormatada}</td>
                     <td>${item.numero_venda || '-'}</td>
                     <td>${item.descricao_produto || '-'}</td>
                     <td>${fornecedor}</td>
@@ -321,23 +278,19 @@ class RelatoriosModule {
                 `
                 tbody.appendChild(tr)
                 
-                // Acumular subtotais do dia
                 subtotalQuantidade += item.quantidade || 0
                 subtotalVendas += parseFloat(item.valor_total) || 0
                 subtotalCusto += custoTotal
                 subtotalLucro += lucro
                 
-                // Acumular totais gerais
                 totalGeralQuantidade += item.quantidade || 0
                 totalGeralVendas += parseFloat(item.valor_total) || 0
                 totalGeralCusto += custoTotal
                 totalGeralLucro += lucro
             })
             
-            // Calcular percentual médio de lucro do dia
             const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
             
-            // Adicionar linha de subtotal por data
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
@@ -355,10 +308,8 @@ class RelatoriosModule {
             tbody.appendChild(trSubtotal)
         })
         
-        // Calcular percentual médio geral
         const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
         
-        // Adicionar linha de total geral no tfoot
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
@@ -448,7 +399,8 @@ class RelatoriosModule {
         const agrupado = {}
         
         itens.forEach(item => {
-            const data = this.extrairDataLocal(item.data_venda)
+            // Usar dateTime.extrairDataLocal para consistência
+            const data = dateTime.extrairDataLocal(item.data_venda)
             
             if (data) {
                 if (!agrupado[data]) {

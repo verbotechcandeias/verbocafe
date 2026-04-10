@@ -1,37 +1,12 @@
 // js/utils/formatters.js
+import * as dateTime from './datetime.js'
 
 export function formatDate(date) {
-    if (!date) return ''
-    
-    // Se a data for uma string no formato YYYY-MM-DD
-    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [ano, mes, dia] = date.split('-')
-        return `${dia}/${mes}/${ano}`
-    }
-    
-    // Caso contrário, tratar como objeto Date
-    const d = new Date(date)
-    
-    // Verificar se a data é válida
-    if (isNaN(d.getTime())) return ''
-    
-    // Ajustar para o fuso local
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    
-    return `${day}/${month}/${year}`
+    return dateTime.formatDate(date)
 }
 
 export function formatDateTime(date) {
-    if (!date) return ''
-    const d = new Date(date)
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    return `${day}/${month}/${year} ${hours}:${minutes}`
+    return dateTime.formatDateTime(date)
 }
 
 export function formatCurrency(value) {

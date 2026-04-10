@@ -2,6 +2,7 @@
 import { supabaseService } from '../supabase-config.js'
 import * as formatters from '../utils/formatters.js'
 import * as validators from '../utils/validators.js'
+import * as dateTime from '../utils/datetime.js'
 
 class VendasModule {
     constructor() {
@@ -41,10 +42,10 @@ class VendasModule {
     }
     
     gerarNumeroVenda() {
-        const date = new Date()
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const day = String(date.getDate()).padStart(2, '0')
+        const agora = dateTime.getDataHoraBrasilia()
+        const year = agora.getFullYear()
+        const month = String(agora.getMonth() + 1).padStart(2, '0')
+        const day = String(agora.getDate()).padStart(2, '0')
         const random = String(Math.floor(Math.random() * 9999)).padStart(4, '0')
         return `VND-${year}${month}${day}-${random}`
     }
@@ -256,7 +257,8 @@ class VendasModule {
     setDataVenda() {
         const dataInput = document.getElementById('dataVenda')
         if (dataInput) {
-            dataInput.value = formatters.formatDateTime(new Date())
+            // Usar a função que retorna a data/hora formatada para exibição
+            dataInput.value = dateTime.getAgoraFormatado()
         }
     }
     
@@ -270,11 +272,7 @@ class VendasModule {
     setDataVendasDia() {
         const dataSpan = document.getElementById('dataVendasDia')
         if (dataSpan) {
-            const hoje = new Date()
-            const dia = String(hoje.getDate()).padStart(2, '0')
-            const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-            const ano = hoje.getFullYear()
-            dataSpan.textContent = `${dia}/${mes}/${ano}`
+            dataSpan.textContent = dateTime.formatDate(new Date())
         }
     }
     
@@ -282,11 +280,7 @@ class VendasModule {
         try {
             console.log('Carregando itens de vendas do dia...')
             
-            const hoje = new Date()
-            const ano = hoje.getFullYear()
-            const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-            const dia = String(hoje.getDate()).padStart(2, '0')
-            const dataHoje = `${ano}-${mes}-${dia}`
+            const dataHoje = dateTime.getHojeISO()
             
             const { data: vendas, error: vendasError } = await supabaseService.getVendas()
             
@@ -297,7 +291,7 @@ class VendasModule {
             
             const vendasDoDia = (vendas || []).filter(venda => {
                 if (!venda.data_venda) return false
-                const dataVenda = venda.data_venda.split('T')[0]
+                const dataVenda = dateTime.extrairDataLocal(venda.data_venda)
                 return dataVenda === dataHoje
             })
             
@@ -377,6 +371,7 @@ class VendasModule {
         let totalQuantidade = 0
         let totalVendas = 0
         
+        // Ordenar por data/hora (mais recente primeiro)
         const itensOrdenados = [...itens].sort((a, b) => {
             const dataA = new Date(a.data_venda)
             const dataB = new Date(b.data_venda)
@@ -386,9 +381,12 @@ class VendasModule {
         itensOrdenados.forEach(item => {
             const tr = document.createElement('tr')
             
+            // CORREÇÃO: Usar dateTime.formatDateTime para converter UTC -> Brasília
             let dataHora = '-'
             if (item.data_venda) {
-                dataHora = formatters.formatDateTime(item.data_venda)
+                // A função formatDateTime já subtrai 3 horas do UTC
+                dataHora = dateTime.formatDateTime(item.data_venda)
+                console.log('Data original (UTC):', item.data_venda, '→ Data exibida (Brasília):', dataHora)
             }
             
             const valorTotal = parseFloat(item.valor_total) || 0
@@ -402,8 +400,10 @@ class VendasModule {
                 formaPagamentoClass = 'badge badge-warning'
             } else if (formaPagamento === 'PIX' || formaPagamento === 'Dinheiro') {
                 formaPagamentoClass = 'badge badge-success'
-            } else {
+            } else if (formaPagamento.includes('Cartão')) {
                 formaPagamentoClass = 'badge badge-info'
+            } else {
+                formaPagamentoClass = 'badge badge-secondary'
             }
             
             tr.innerHTML = `
@@ -935,8 +935,9 @@ class VendasModule {
         const primeiroItem = this.itensVenda[0]
         const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || 'Pendente'
         
+        // Usar getAgoraISO() para obter a data/hora correta em UTC para o banco
         const venda = {
-            data_venda: new Date().toISOString(),
+            data_venda: dateTime.getAgoraISO(),
             numero_venda: this.numeroVenda,
             codigo_produto: primeiroItem.codigo_produto,
             descricao_produto: primeiroItem.descricao_produto,
@@ -949,7 +950,7 @@ class VendasModule {
             forma_pagamento: formaPagamento
         }
         
-        console.log('Dados da venda a salvar:', venda)
+        console.log('Data da venda a ser salva (UTC):', venda.data_venda)
         
         // Preparar itens com forma_pagamento
         const itensParaSalvar = this.itensVenda.map(item => ({

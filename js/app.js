@@ -2,6 +2,7 @@
 import { supabaseService } from './supabase-config.js'
 import * as formatters from './utils/formatters.js'
 import * as validators from './utils/validators.js'
+import * as dateTime from './utils/datetime.js'
 
 // Módulos da aplicação
 import { comprasModule } from './modules/compras.js'

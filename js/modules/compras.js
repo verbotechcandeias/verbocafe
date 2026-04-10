@@ -2,6 +2,7 @@
 import { supabaseService } from '../supabase-config.js'
 import * as formatters from '../utils/formatters.js'
 import * as validators from '../utils/validators.js'
+import * as dateTime from '../utils/datetime.js'
 
 class ComprasModule {
     constructor() {
@@ -116,15 +117,10 @@ class ComprasModule {
         return isNaN(numero) ? 0 : numero
     }
     
-    setDataCompra() {
+   setDataCompra() {
         const dataInput = document.getElementById('dataCompra')
         if (dataInput) {
-            // Define a data atual no formato YYYY-MM-DD para o input date
-            const hoje = new Date()
-            const ano = hoje.getFullYear()
-            const mes = String(hoje.getMonth() + 1).padStart(2, '0')
-            const dia = String(hoje.getDate()).padStart(2, '0')
-            dataInput.value = `${ano}-${mes}-${dia}`
+            dataInput.value = dateTime.getHojeISO()
         }
     }
     
@@ -429,16 +425,10 @@ class ComprasModule {
     }
     
     getFormData() {
-        // Obter valor numérico do campo formatado
         const valorCompraInput = document.getElementById('valorCompra')
         const valorCompra = this.obterValorNumerico(valorCompraInput)
-        
-        // CORREÇÃO: Obter a data corretamente sem ajuste de fuso horário
         const dataCompraInput = document.getElementById('dataCompra')
         let dataCompra = dataCompraInput.value
-        
-        // Garantir que a data seja salva como YYYY-MM-DD sem conversão de fuso
-        // O input date já retorna no formato YYYY-MM-DD
         
         return {
             data_compra: dataCompra,

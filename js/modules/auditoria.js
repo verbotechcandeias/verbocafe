@@ -2,6 +2,7 @@
 import { supabaseService } from '../supabase-config.js'
 import * as formatters from '../utils/formatters.js'
 import * as validators from '../utils/validators.js'
+import * as dateTime from '../utils/datetime.js'
 
 class AuditoriaModule {
     constructor() {
@@ -69,7 +70,7 @@ class AuditoriaModule {
     setDataAuditoria() {
         const dataInput = document.getElementById('dataAuditoria')
         if (dataInput) {
-            dataInput.value = formatters.formatDateTime(new Date())
+            dataInput.value = dateTime.formatDateTime(new Date())
         }
     }
     
@@ -196,7 +197,7 @@ class AuditoriaModule {
             return
         }
         
-        const dataAuditoria = new Date().toISOString()
+        const dataAuditoria = dateTime.getAgoraISO()
         
         // Preparar dados para salvar
         const auditoriasParaSalvar = this.itensAuditoria.map(item => ({
