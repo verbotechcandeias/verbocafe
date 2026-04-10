@@ -10,6 +10,83 @@ class AuditoriaModule {
         this.itensAuditoria = []
         this.auditoriaAtual = null
     }
+
+    showConfirm(options = {}) {
+        const {
+            title = 'Confirmar ação',
+            message = 'Tem certeza que deseja continuar?',
+            confirmText = 'Confirmar',
+            cancelText = 'Cancelar',
+            type = 'warning',
+            icon = 'fa-exclamation-triangle'
+        } = options
+        
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div')
+            overlay.className = 'modal-confirm-overlay'
+            
+            const modal = document.createElement('div')
+            modal.className = 'modal-confirm'
+            
+            let iconClass = 'warning'
+            if (type === 'danger') iconClass = 'danger'
+            else if (type === 'info') iconClass = 'info'
+            
+            let confirmBtnClass = 'modal-confirm-btn confirm'
+            if (type === 'warning') confirmBtnClass += ' warning-btn'
+            
+            modal.innerHTML = `
+                <div class="modal-confirm-header">
+                    <div class="modal-confirm-icon ${iconClass}">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div class="modal-confirm-title">${title}</div>
+                </div>
+                <div class="modal-confirm-message">${message}</div>
+                <div class="modal-confirm-actions">
+                    <button class="modal-confirm-btn cancel-btn">
+                        <i class="fas fa-times"></i> ${cancelText}
+                    </button>
+                    <button class="${confirmBtnClass}">
+                        <i class="fas fa-check"></i> ${confirmText}
+                    </button>
+                </div>
+            `
+            
+            overlay.appendChild(modal)
+            document.body.appendChild(overlay)
+            
+            const cancelBtn = modal.querySelector('.cancel-btn')
+            const confirmBtn = modal.querySelector('.confirm')
+            
+            const closeModal = (result) => {
+                overlay.style.animation = 'fadeIn 0.2s ease reverse'
+                setTimeout(() => {
+                    overlay.remove()
+                    resolve(result)
+                }, 200)
+            }
+            
+            cancelBtn.addEventListener('click', () => closeModal(false))
+            confirmBtn.addEventListener('click', () => closeModal(true))
+            
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeModal(false)
+                }
+            })
+            
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(false)
+                    document.removeEventListener('keydown', handleEsc)
+                }
+            }
+            document.addEventListener('keydown', handleEsc)
+            
+            setTimeout(() => cancelBtn.focus(), 100)
+        })
+    }
     
     async init() {
         await this.carregarProdutos()
@@ -179,9 +256,24 @@ class AuditoriaModule {
         document.head.appendChild(style)
     }
     
-    removerItem(index) {
-        this.itensAuditoria.splice(index, 1)
-        this.renderizarItensAuditoria()
+    async removerItem(index) {
+        const item = this.itensAuditoria[index]
+        if (!item) return
+        
+        const confirmado = await this.showConfirm({
+            title: 'Remover Item',
+            message: `Deseja remover "${item.descricao_produto}" da auditoria?`,
+            confirmText: 'Remover',
+            cancelText: 'Cancelar',
+            type: 'warning',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (confirmado) {
+            this.itensAuditoria.splice(index, 1)
+            this.renderizarItensAuditoria()
+            this.showSuccess('Item removido da auditoria')
+        }
     }
     
     limparFormProduto() {

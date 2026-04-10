@@ -15,6 +15,91 @@ class VendasModule {
         this.formaPagamento = 'Pendente'
     }
 
+    showConfirm(options = {}) {
+        const {
+            title = 'Confirmar ação',
+            message = 'Tem certeza que deseja continuar?',
+            confirmText = 'Confirmar',
+            cancelText = 'Cancelar',
+            type = 'warning', // 'warning', 'danger', 'info'
+            icon = 'fa-exclamation-triangle'
+        } = options
+        
+        return new Promise((resolve) => {
+            // Criar overlay
+            const overlay = document.createElement('div')
+            overlay.className = 'modal-confirm-overlay'
+            
+            // Criar modal
+            const modal = document.createElement('div')
+            modal.className = 'modal-confirm'
+            
+            // Determinar classe do ícone
+            let iconClass = 'warning'
+            if (type === 'danger') iconClass = 'danger'
+            else if (type === 'info') iconClass = 'info'
+            
+            // Determinar classe do botão confirmar
+            let confirmBtnClass = 'modal-confirm-btn confirm'
+            if (type === 'warning') confirmBtnClass += ' warning-btn'
+            
+            modal.innerHTML = `
+                <div class="modal-confirm-header">
+                    <div class="modal-confirm-icon ${iconClass}">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div class="modal-confirm-title">${title}</div>
+                </div>
+                <div class="modal-confirm-message">${message}</div>
+                <div class="modal-confirm-actions">
+                    <button class="modal-confirm-btn cancel-btn">
+                        <i class="fas fa-times"></i> ${cancelText}
+                    </button>
+                    <button class="${confirmBtnClass}">
+                        <i class="fas fa-check"></i> ${confirmText}
+                    </button>
+                </div>
+            `
+            
+            overlay.appendChild(modal)
+            document.body.appendChild(overlay)
+            
+            // Event listeners
+            const cancelBtn = modal.querySelector('.cancel-btn')
+            const confirmBtn = modal.querySelector('.confirm')
+            
+            const closeModal = (result) => {
+                overlay.style.animation = 'fadeIn 0.2s ease reverse'
+                setTimeout(() => {
+                    overlay.remove()
+                    resolve(result)
+                }, 200)
+            }
+            
+            cancelBtn.addEventListener('click', () => closeModal(false))
+            confirmBtn.addEventListener('click', () => closeModal(true))
+            
+            // Fechar ao clicar fora
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeModal(false)
+                }
+            })
+            
+            // Fechar com tecla ESC
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(false)
+                    document.removeEventListener('keydown', handleEsc)
+                }
+            }
+            document.addEventListener('keydown', handleEsc)
+            
+            // Focar no botão cancelar
+            setTimeout(() => cancelBtn.focus(), 100)
+        })
+    }
+
     async carregarCompras() {
         try {
             const { data, error } = await supabaseService.getCompras()
@@ -780,12 +865,24 @@ class VendasModule {
         item.valor_total = Math.max(0, valorBruto - item.desconto)
     }
 
-    // Atualizar o método removerItem para não precisar de confirmação
-    removerItem(index) {
-        if (confirm('Remover este item da venda?')) {
+    async removerItem(index) {
+        const item = this.itensVenda[index]
+        if (!item) return
+        
+        const confirmado = await this.showConfirm({
+            title: 'Remover Item',
+            message: `Deseja remover "${item.descricao_produto}" da venda?`,
+            confirmText: 'Remover',
+            cancelText: 'Cancelar',
+            type: 'warning',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (confirmado) {
             this.itensVenda.splice(index, 1)
             this.renderizarItensVenda()
             this.atualizarTotais()
+            this.showSuccess('Item removido da venda')
         }
     }
 
@@ -1267,7 +1364,16 @@ class VendasModule {
     }
     
     async excluirItemVenda(vendaId, itemId) {
-        if (!confirm('Tem certeza que deseja excluir este item da venda?')) {
+        const confirmado = await this.showConfirm({
+            title: 'Excluir Item da Venda',
+            message: 'Tem certeza que deseja excluir este item? A quantidade será devolvida ao estoque.',
+            confirmText: 'Sim, excluir',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (!confirmado) {
             return
         }
         
@@ -1309,10 +1415,8 @@ class VendasModule {
             const { data: itensRestantes } = await supabaseService.getItensVenda(vendaId)
             
             if (!itensRestantes || itensRestantes.length === 0) {
-                // Se não houver mais itens, excluir a venda também
                 await supabaseService.deleteVenda(vendaId)
             } else {
-                // Atualizar o total da venda
                 const totalVenda = itensRestantes.reduce((sum, i) => sum + parseFloat(i.valor_total), 0)
                 const quantidadeTotal = itensRestantes.reduce((sum, i) => sum + i.quantidade, 0)
                 
@@ -1354,7 +1458,16 @@ class VendasModule {
     }
     
     async excluirVenda(id) {
-        if (!confirm('Tem certeza que deseja excluir esta venda? Todos os itens serão devolvidos ao estoque.')) {
+        const confirmado = await this.showConfirm({
+            title: 'Excluir Venda',
+            message: 'Tem certeza que deseja excluir esta venda? Todos os itens serão devolvidos ao estoque.',
+            confirmText: 'Sim, excluir',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (!confirmado) {
             return
         }
         
@@ -1406,13 +1519,23 @@ class VendasModule {
         this.showSuccess('Lista atualizada!')
     }
     
-    cancelarVenda() {
+    async cancelarVenda() {
         if (this.itensVenda.length > 0 || this.vendaEditando) {
+            const titulo = this.vendaEditando ? 'Cancelar Edição' : 'Cancelar Venda'
             const mensagem = this.vendaEditando ? 
-                'Cancelar edição da venda? As alterações não serão salvas.' : 
-                'Cancelar esta venda? Os itens adicionados serão perdidos.'
+                'Tem certeza que deseja cancelar a edição? Todas as alterações serão perdidas.' : 
+                'Tem certeza que deseja cancelar esta venda? Todos os itens adicionados serão perdidos.'
             
-            if (!confirm(mensagem)) {
+            const confirmado = await this.showConfirm({
+                title: titulo,
+                message: mensagem,
+                confirmText: 'Sim, cancelar',
+                cancelText: 'Não, continuar',
+                type: 'warning',
+                icon: 'fa-exclamation-triangle'
+            })
+            
+            if (!confirmado) {
                 return
             }
         }
@@ -1434,7 +1557,6 @@ class VendasModule {
             validators.clearValidationError(formaPagamento)
         }
         
-        // ALTERNAR BOTÕES para modo nova venda
         this.alternarBotoesVenda(false)
     }
 

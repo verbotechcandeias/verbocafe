@@ -9,6 +9,91 @@ class ProdutosModule {
         this.produtoSelecionado = null
         this.codigosCompra = []
     }
+
+    showConfirm(options = {}) {
+        const {
+            title = 'Confirmar ação',
+            message = 'Tem certeza que deseja continuar?',
+            confirmText = 'Confirmar',
+            cancelText = 'Cancelar',
+            type = 'warning',
+            icon = 'fa-exclamation-triangle'
+        } = options
+        
+        return new Promise((resolve) => {
+            // Criar overlay
+            const overlay = document.createElement('div')
+            overlay.className = 'modal-confirm-overlay'
+            
+            // Criar modal
+            const modal = document.createElement('div')
+            modal.className = 'modal-confirm'
+            
+            // Determinar classe do ícone
+            let iconClass = 'warning'
+            if (type === 'danger') iconClass = 'danger'
+            else if (type === 'info') iconClass = 'info'
+            
+            // Determinar classe do botão confirmar
+            let confirmBtnClass = 'modal-confirm-btn confirm'
+            if (type === 'warning') confirmBtnClass += ' warning-btn'
+            
+            modal.innerHTML = `
+                <div class="modal-confirm-header">
+                    <div class="modal-confirm-icon ${iconClass}">
+                        <i class="fas ${icon}"></i>
+                    </div>
+                    <div class="modal-confirm-title">${title}</div>
+                </div>
+                <div class="modal-confirm-message">${message}</div>
+                <div class="modal-confirm-actions">
+                    <button class="modal-confirm-btn cancel-btn">
+                        <i class="fas fa-times"></i> ${cancelText}
+                    </button>
+                    <button class="${confirmBtnClass}">
+                        <i class="fas fa-check"></i> ${confirmText}
+                    </button>
+                </div>
+            `
+            
+            overlay.appendChild(modal)
+            document.body.appendChild(overlay)
+            
+            // Event listeners
+            const cancelBtn = modal.querySelector('.cancel-btn')
+            const confirmBtn = modal.querySelector('.confirm')
+            
+            const closeModal = (result) => {
+                overlay.style.animation = 'fadeIn 0.2s ease reverse'
+                setTimeout(() => {
+                    overlay.remove()
+                    resolve(result)
+                }, 200)
+            }
+            
+            cancelBtn.addEventListener('click', () => closeModal(false))
+            confirmBtn.addEventListener('click', () => closeModal(true))
+            
+            // Fechar ao clicar fora
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    closeModal(false)
+                }
+            })
+            
+            // Fechar com tecla ESC
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(false)
+                    document.removeEventListener('keydown', handleEsc)
+                }
+            }
+            document.addEventListener('keydown', handleEsc)
+            
+            // Focar no botão cancelar
+            setTimeout(() => cancelBtn.focus(), 100)
+        })
+    }
     
     async init() {
         await this.carregarCodigosCompra()
@@ -390,7 +475,16 @@ class ProdutosModule {
             return
         }
         
-        if (!confirm('Tem certeza que deseja excluir este produto?')) {
+        const confirmado = await this.showConfirm({
+            title: 'Excluir Produto',
+            message: 'Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.',
+            confirmText: 'Sim, excluir',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (!confirmado) {
             return
         }
         
@@ -447,7 +541,16 @@ class ProdutosModule {
     }
     
     async excluirProduto(id) {
-        if (!confirm('Tem certeza que deseja excluir este produto?')) {
+        const confirmado = await this.showConfirm({
+            title: 'Excluir Produto',
+            message: 'Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.',
+            confirmText: 'Sim, excluir',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            icon: 'fa-trash-alt'
+        })
+        
+        if (!confirmado) {
             return
         }
         
