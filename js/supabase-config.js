@@ -24,7 +24,8 @@ export const supabaseService = {
             .select()
         return { data, error }
     },
-    
+
+    // Atualizar método updateCompra
     async updateCompra(id, compra) {
         const { data, error } = await supabase
             .from('compras')

@@ -123,7 +123,7 @@
                                 <label for="categoria">Categoria</label>
                                 <select id="categoria" class="form-control" required>
                                     <option value="">Selecione...</option>
-                                    <option value="Bebidas">Bebidas</option>                                   
+                                    <option value="Bebidas Quentes">Bebidas</option>
                                     <option value="Salgados">Salgados</option>
                                     <option value="Doces">Doces</option>
                                 </select>
@@ -133,8 +133,12 @@
                                 <input type="number" id="quantidade" class="form-control" min="1" required>
                             </div>
                             <div class="form-group">
-                                <label for="valorCompra">Valor de Compra (R$)</label>
+                                <label for="valorCompra">Valor de Compra Unit. (R$)</label>
                                 <input type="text" id="valorCompra" class="form-control" placeholder="0,00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="valorTotalCompra">Valor Total (R$)</label>
+                                <input type="text" id="valorTotalCompra" class="form-control" readonly>
                             </div>
                         </div>
                         <div class="form-actions">
@@ -170,7 +174,8 @@
                                     <th>Fornecedor</th>
                                     <th>Categoria</th>
                                     <th>Qtd</th>
-                                    <th>Valor</th>
+                                    <th>Valor Unit.</th>
+                                    <th>Valor Total</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>

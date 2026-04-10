@@ -100,6 +100,21 @@ class ComprasModule {
         this.setDataCompra()
         await this.carregarCompras()
     }
+
+    calcularValorTotal() {
+        const quantidade = parseInt(document.getElementById('quantidade').value) || 0
+        const valorUnitario = this.obterValorNumerico(document.getElementById('valorCompra'))
+        
+        const valorTotal = quantidade * valorUnitario
+        
+        const valorTotalInput = document.getElementById('valorTotalCompra')
+        if (valorTotalInput) {
+            valorTotalInput.value = valorTotal.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })
+        }
+    }
     
     setupEventListeners() {
         // Formatar campo de valor de compra
@@ -107,10 +122,12 @@ class ComprasModule {
         if (valorCompra) {
             valorCompra.addEventListener('input', (e) => {
                 this.formatarMoeda(e.target)
+                this.calcularValorTotal()
             })
             
             valorCompra.addEventListener('blur', (e) => {
                 this.validarValorCompra(e.target)
+                this.calcularValorTotal()
             })
             
             valorCompra.addEventListener('focus', (e) => {
@@ -122,11 +139,12 @@ class ComprasModule {
             })
         }
         
-        // Validar quantidade
+        // Validar quantidade e calcular total
         const quantidade = document.getElementById('quantidade')
         if (quantidade) {
             quantidade.addEventListener('input', (e) => {
                 validators.validateNumber(e.target, 1)
+                this.calcularValorTotal()
             })
             
             quantidade.addEventListener('blur', (e) => {
@@ -134,6 +152,7 @@ class ComprasModule {
                 if (value < 1) {
                     e.target.value = 1
                 }
+                this.calcularValorTotal()
             })
         }
         
@@ -235,7 +254,7 @@ class ComprasModule {
         if (this.compras.length === 0) {
             const tr = document.createElement('tr')
             tr.innerHTML = `
-                <td colspan="8" style="text-align: center; padding: 20px;">
+                <td colspan="9" style="text-align: center; padding: 20px;">
                     Nenhuma compra cadastrada
                 </td>
             `
@@ -251,20 +270,21 @@ class ComprasModule {
         comprasOrdenadas.forEach(compra => {
             const tr = document.createElement('tr')
             
-            // CORREÇÃO: Formatar data para exibição sem problemas de fuso
+            // Formatar data para exibição
             let dataExibicao = compra.data_compra
             if (typeof dataExibicao === 'string') {
-                // Se a data já estiver no formato YYYY-MM-DD, formatar diretamente
                 if (dataExibicao.includes('-') && !dataExibicao.includes('T')) {
                     const [ano, mes, dia] = dataExibicao.split('-')
                     dataExibicao = `${dia}/${mes}/${ano}`
                 } else {
-                    // Se tiver timestamp, usar o formatter
                     dataExibicao = formatters.formatDate(dataExibicao)
                 }
             } else {
                 dataExibicao = formatters.formatDate(dataExibicao)
             }
+            
+            // Calcular valor total se não existir
+            const valorTotal = compra.valor_total || (compra.quantidade * compra.valor_compra)
             
             tr.innerHTML = `
                 <td>${dataExibicao}</td>
@@ -274,6 +294,7 @@ class ComprasModule {
                 <td>${compra.categoria || '-'}</td>
                 <td>${compra.quantidade || 0}</td>
                 <td>${formatters.formatCurrency(compra.valor_compra)}</td>
+                <td>${formatters.formatCurrency(valorTotal)}</td>
                 <td>
                     <button class="btn-icon" onclick="comprasModule.selecionarCompra('${compra.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
@@ -432,22 +453,11 @@ class ComprasModule {
         this.compraSelecionada = this.compras.find(c => c.id === id)
         
         if (this.compraSelecionada) {
-            // CORREÇÃO: Formatar data corretamente sem ajuste de fuso
-            // A data do banco vem como YYYY-MM-DD
+            // Formatar data para o input date (YYYY-MM-DD)
             const dataCompra = this.compraSelecionada.data_compra
-            
-            // Se a data for um objeto Date, converter para string YYYY-MM-DD
             let dataFormatada = dataCompra
-            if (dataCompra instanceof Date || (typeof dataCompra === 'string' && dataCompra.includes('T'))) {
-                const date = new Date(dataCompra)
-                // Adicionar um dia para compensar o fuso horário
-                date.setDate(date.getDate() + 1)
-                const ano = date.getFullYear()
-                const mes = String(date.getMonth() + 1).padStart(2, '0')
-                const dia = String(date.getDate()).padStart(2, '0')
-                dataFormatada = `${ano}-${mes}-${dia}`
-            } else if (typeof dataCompra === 'string' && dataCompra.includes('-')) {
-                // Se já estiver no formato YYYY-MM-DD, usar diretamente
+            
+            if (typeof dataCompra === 'string' && dataCompra.includes('T')) {
                 dataFormatada = dataCompra.split('T')[0]
             }
             
@@ -458,9 +468,16 @@ class ComprasModule {
             document.getElementById('categoria').value = this.compraSelecionada.categoria || ''
             document.getElementById('quantidade').value = this.compraSelecionada.quantidade || 1
             
-            // Formatar valor
-            const valor = this.compraSelecionada.valor_compra || 0
-            document.getElementById('valorCompra').value = valor.toLocaleString('pt-BR', {
+            // Formatar valor unitário
+            const valorUnitario = this.compraSelecionada.valor_compra || 0
+            document.getElementById('valorCompra').value = valorUnitario.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })
+            
+            // Formatar valor total
+            const valorTotal = this.compraSelecionada.valor_total || (this.compraSelecionada.quantidade * valorUnitario)
+            document.getElementById('valorTotalCompra').value = valorTotal.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             })
@@ -520,6 +537,7 @@ class ComprasModule {
         document.getElementById('categoria').value = ''
         document.getElementById('quantidade').value = ''
         document.getElementById('valorCompra').value = ''
+        document.getElementById('valorTotalCompra').value = ''  // Limpar valor total
         this.compraSelecionada = null
         
         // Limpar validações
@@ -528,8 +546,14 @@ class ComprasModule {
     }
     
     getFormData() {
+        // Obter valor numérico do campo formatado
         const valorCompraInput = document.getElementById('valorCompra')
         const valorCompra = this.obterValorNumerico(valorCompraInput)
+        
+        const quantidade = parseInt(document.getElementById('quantidade').value) || 0
+        const valorTotal = quantidade * valorCompra
+        
+        // CORREÇÃO: Obter a data corretamente
         const dataCompraInput = document.getElementById('dataCompra')
         let dataCompra = dataCompraInput.value
         
@@ -539,8 +563,9 @@ class ComprasModule {
             descricao_produto: document.getElementById('descricaoProduto').value.trim(),
             fornecedor: document.getElementById('fornecedor').value.trim(),
             categoria: document.getElementById('categoria').value,
-            quantidade: parseInt(document.getElementById('quantidade').value) || 0,
-            valor_compra: valorCompra
+            quantidade: quantidade,
+            valor_compra: valorCompra,
+            valor_total: valorTotal  // Adicionar valor total
         }
     }
     
