@@ -283,11 +283,30 @@ export const supabaseService = {
             .order('data_auditoria', { ascending: false })
         return { data, error }
     },
-    
-    async saveAuditoria(auditoria) {
+
+    // Buscar auditoria por ID
+    async getAuditoriaById(id) {
         const { data, error } = await supabase
             .from('auditoria')
-            .insert(auditoria)
+            .select('*')
+            .eq('id', id)
+            .single()
+        return { data, error }
+    },
+
+    // Excluir uma auditoria específica por ID
+    async deleteAuditoria(id) {
+        const { error } = await supabase
+            .from('auditoria')
+            .delete()
+            .eq('id', id)
+        return { error }
+    },
+    
+    async saveAuditoria(auditorias) {
+        const { data, error } = await supabase
+            .from('auditoria')
+            .insert(auditorias)
             .select()
         return { data, error }
     }

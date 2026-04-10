@@ -438,6 +438,7 @@
     <!-- Template Auditoria -->
     <template id="template-auditoria">
         <div class="page-content">
+            <!-- Card de Realizar Auditoria -->
             <div class="card">
                 <div class="card-header">
                     <h2>Auditoria de Estoque</h2>
@@ -477,7 +478,7 @@
                         </div>
                         
                         <div class="itens-auditoria-section mt-4">
-                            <h3>Itens da Auditoria</h3>
+                            <h3>Itens da Auditoria Atual</h3>
                             <div class="table-responsive">
                                 <table class="table modern-table" id="tabelaItensAuditoria">
                                     <thead>
@@ -497,14 +498,59 @@
                         </div>
                         
                         <div class="form-actions mt-4">
-                            <button type="button" class="btn btn-success" onclick="auditoriaModule.realizarAuditoria()">
+                            <button type="button" class="btn btn-success" id="btnRealizarAuditoria" onclick="auditoriaModule.realizarAuditoria()">
                                 <i class="fas fa-check"></i> Realizar Auditoria
                             </button>
-                            <button type="button" class="btn btn-primary" onclick="auditoriaModule.exportarPDF()">
+                            <button type="button" class="btn btn-primary" id="btnAlterarAuditoria" onclick="auditoriaModule.confirmarAlteracao()" style="display: none;">
+                                <i class="fas fa-save"></i> Alterar Auditoria
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="auditoriaModule.cancelarAuditoria()">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="auditoriaModule.exportarPDF()">
                                 <i class="fas fa-file-pdf"></i> Exportar PDF
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+            
+            <!-- Card de Auditorias do Dia -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h2>
+                        <i class="fas fa-history"></i> 
+                        Auditorias do Dia - <span id="dataAuditoriasDia"></span>
+                    </h2>
+                    <button type="button" class="btn btn-light btn-sm" onclick="auditoriaModule.atualizarListaAuditorias()" title="Atualizar lista">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table modern-table" id="tabelaAuditoriasDia">
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Código</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Qtd Física</th>
+                                    <th>Qtd Sistema</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyAuditoriasDia"></tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <td colspan="6"><strong>RESUMO DO DIA</strong></td>
+                                    <td id="resumoStatusDia">OK: 0 | NÃO OK: 0</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
