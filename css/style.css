@@ -1218,3 +1218,21 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         font-size: 15px;
     }
 }
+
+#tabelaRelatorioCompras td:nth-child(7),
+#tabelaRelatorioCompras td:nth-child(8),
+#tabelaRelatorioCompras th:nth-child(7),
+#tabelaRelatorioCompras th:nth-child(8) {
+    text-align: right;
+    white-space: nowrap;
+}
+
+#tabelaRelatorioCompras tfoot tr {
+    background-color: #e9ecef;
+    font-weight: bold;
+    border-top: 3px solid #8B4513;
+}
+
+#tabelaRelatorioCompras tfoot td {
+    padding: 12px 15px;
+}

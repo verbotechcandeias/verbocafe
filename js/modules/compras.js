@@ -105,6 +105,7 @@ class ComprasModule {
         const quantidade = parseInt(document.getElementById('quantidade').value) || 0
         const valorUnitario = this.obterValorNumerico(document.getElementById('valorCompra'))
         
+        // Permite valor zero
         const valorTotal = quantidade * valorUnitario
         
         const valorTotalInput = document.getElementById('valorTotalCompra')
@@ -169,6 +170,8 @@ class ComprasModule {
         if (!input) return
         
         let value = input.value
+        
+        // Remove tudo exceto números
         value = value.replace(/\D/g, '')
         
         if (value === '') {
@@ -176,49 +179,72 @@ class ComprasModule {
             return
         }
         
+        // Converte para número e divide por 100 para ter os centavos
         const number = parseInt(value) / 100
+        
+        // Formata como moeda brasileira (permite zero)
         input.value = number.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         })
+        
+        this.calcularValorTotal()
     }
     
     validarValorCompra(input) {
         if (!input) return false
         
+        // Se estiver vazio, define como 0,00
         if (!input.value || input.value.trim() === '') {
             input.value = '0,00'
-            return false
+            this.calcularValorTotal()
+            return true
         }
         
         const valorNumerico = this.obterValorNumerico(input)
         
-        if (valorNumerico <= 0) {
-            validators.showValidationError(input, 'O valor de compra deve ser maior que zero')
+        // Permite valor zero ou maior
+        if (valorNumerico < 0) {
+            validators.showValidationError(input, 'O valor de compra não pode ser negativo')
             input.value = '0,00'
+            this.calcularValorTotal()
             return false
         }
         
+        // Formata novamente para garantir
         input.value = valorNumerico.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         })
         
         validators.clearValidationError(input)
+        this.calcularValorTotal()
         return true
     }
     
     obterValorNumerico(input) {
-        if (!input || !input.value) return 0
+        if (!input) return 0
         if (typeof input === 'number') return input
         
+        // Se o valor for vazio, retorna 0
+        if (!input.value || input.value.trim() === '') {
+            return 0
+        }
+        
+        // Remover formatação e converter para número
         const valorLimpo = input.value
             .replace(/\./g, '')
             .replace(',', '.')
+            .replace(/[^\d.-]/g, '')  // Remove qualquer caractere não numérico exceto ponto e menos
             .trim()
         
         const numero = parseFloat(valorLimpo)
-        return isNaN(numero) ? 0 : numero
+        
+        // Retornar 0 se for NaN, negativo ou inválido
+        if (isNaN(numero)) return 0
+        if (numero < 0) return 0
+        
+        return numero
     }
     
    setDataCompra() {
@@ -344,6 +370,8 @@ class ComprasModule {
         try {
             const compra = this.getFormData()
             
+            console.log('Dados da compra a cadastrar:', compra)
+            
             if (!this.validarForm(compra)) {
                 return
             }
@@ -355,6 +383,7 @@ class ComprasModule {
             this.hideLoading()
             
             if (error) {
+                console.error('Erro detalhado:', error)
                 this.showError('Erro ao cadastrar compra: ' + error.message)
                 return
             }
@@ -378,6 +407,8 @@ class ComprasModule {
             
             const compra = this.getFormData()
             
+            console.log('Dados da compra a alterar:', compra)
+            
             if (!this.validarForm(compra)) {
                 return
             }
@@ -392,6 +423,7 @@ class ComprasModule {
             this.hideLoading()
             
             if (error) {
+                console.error('Erro detalhado:', error)
                 this.showError('Erro ao alterar compra: ' + error.message)
                 return
             }
@@ -548,7 +580,16 @@ class ComprasModule {
     getFormData() {
         // Obter valor numérico do campo formatado
         const valorCompraInput = document.getElementById('valorCompra')
-        const valorCompra = this.obterValorNumerico(valorCompraInput)
+        let valorCompra = 0
+        
+        if (valorCompraInput && valorCompraInput.value) {
+            // Remover formatação e converter para número
+            const valorLimpo = valorCompraInput.value
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .trim()
+            valorCompra = parseFloat(valorLimpo) || 0
+        }
         
         const quantidade = parseInt(document.getElementById('quantidade').value) || 0
         const valorTotal = quantidade * valorCompra
@@ -557,6 +598,7 @@ class ComprasModule {
         const dataCompraInput = document.getElementById('dataCompra')
         let dataCompra = dataCompraInput.value
         
+        // Garantir que os valores numéricos sejam números válidos
         return {
             data_compra: dataCompra,
             codigo_produto: document.getElementById('codigoProduto').value.trim(),
@@ -564,8 +606,8 @@ class ComprasModule {
             fornecedor: document.getElementById('fornecedor').value.trim(),
             categoria: document.getElementById('categoria').value,
             quantidade: quantidade,
-            valor_compra: valorCompra,
-            valor_total: valorTotal  // Adicionar valor total
+            valor_compra: valorCompra,  // Garantir que é número
+            valor_total: valorTotal     // Garantir que é número
         }
     }
     
@@ -610,7 +652,7 @@ class ComprasModule {
             return false
         }
         
-        // Validar quantidade
+        // Validar quantidade (deve ser maior que zero)
         if (compra.quantidade <= 0) {
             const campo = document.getElementById('quantidade')
             validators.showValidationError(campo, 'Quantidade deve ser maior que zero')
@@ -618,10 +660,10 @@ class ComprasModule {
             return false
         }
         
-        // Validar valor de compra
-        if (compra.valor_compra <= 0) {
+        // Validar valor de compra (permite zero ou maior)
+        if (compra.valor_compra < 0) {
             const campo = document.getElementById('valorCompra')
-            validators.showValidationError(campo, 'Valor de compra deve ser maior que zero')
+            validators.showValidationError(campo, 'Valor de compra não pode ser negativo')
             campo.focus()
             return false
         }

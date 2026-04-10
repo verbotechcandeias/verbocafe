@@ -54,6 +54,15 @@ class RelatoriosModule {
             
             this.dadosCompras = data || []
             console.log('Compras carregadas:', this.dadosCompras.length)
+            
+            // Garantir que todas as compras tenham valor_total
+            this.dadosCompras = this.dadosCompras.map(compra => {
+                if (!compra.valor_total) {
+                    compra.valor_total = (compra.quantidade || 0) * (parseFloat(compra.valor_compra) || 0)
+                }
+                return compra
+            })
+            
             this.renderizarCompras(this.dadosCompras)
             this.preencherFiltroDatas('compras')
         } catch (err) {
@@ -165,33 +174,41 @@ class RelatoriosModule {
         
         tbody.innerHTML = ''
         let totalQuantidade = 0
-        let totalValor = 0
+        let totalValorTotal = 0
         
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
         
+        // Ordenar por data (mais recente primeiro)
         const dadosOrdenados = [...dados].sort((a, b) => 
             new Date(b.data_compra) - new Date(a.data_compra)
         )
         
         dadosOrdenados.forEach(compra => {
             const tr = document.createElement('tr')
+            
+            // Calcular valor total se não existir
+            const quantidade = compra.quantidade || 0
+            const valorUnitario = parseFloat(compra.valor_compra) || 0
+            const valorTotal = compra.valor_total || (quantidade * valorUnitario)
+            
             tr.innerHTML = `
                 <td>${this.formatarDataExibicao(compra.data_compra)}</td>
                 <td>${compra.codigo_produto || '-'}</td>
                 <td>${compra.descricao_produto || '-'}</td>
                 <td>${compra.fornecedor || '-'}</td>
                 <td>${compra.categoria || '-'}</td>
-                <td>${compra.quantidade || 0}</td>
-                <td>${formatters.formatCurrency(compra.valor_compra)}</td>
+                <td>${quantidade}</td>
+                <td>${formatters.formatCurrency(valorUnitario)}</td>
+                <td>${formatters.formatCurrency(valorTotal)}</td>
             `
             tbody.appendChild(tr)
             
-            totalQuantidade += compra.quantidade || 0
-            totalValor += parseFloat(compra.valor_compra) || 0
+            totalQuantidade += quantidade
+            totalValorTotal += valorTotal
         })
         
         if (tfoot) {
@@ -199,7 +216,8 @@ class RelatoriosModule {
                 <tr>
                     <td colspan="5"><strong>TOTAL</strong></td>
                     <td><strong>${totalQuantidade}</strong></td>
-                    <td><strong>${formatters.formatCurrency(totalValor)}</strong></td>
+                    <td>-</td>
+                    <td><strong>${formatters.formatCurrency(totalValorTotal)}</strong></td>
                 </tr>
             `
         }

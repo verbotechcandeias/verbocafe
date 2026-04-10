@@ -18,20 +18,50 @@ export const supabaseService = {
     },
     
     async saveCompra(compra) {
+        console.log('Salvando compra no Supabase:', compra)
+        
+        // Garantir que os campos numéricos são números
+        const compraLimpa = {
+            ...compra,
+            quantidade: Number(compra.quantidade),
+            valor_compra: Number(compra.valor_compra),
+            valor_total: Number(compra.valor_total)
+        }
+        
         const { data, error } = await supabase
             .from('compras')
-            .insert([compra])
+            .insert([compraLimpa])
             .select()
+        
+        if (error) {
+            console.error('Erro Supabase saveCompra:', error)
+        }
+        
         return { data, error }
     },
 
     // Atualizar método updateCompra
     async updateCompra(id, compra) {
+        console.log('Atualizando compra no Supabase:', { id, compra })
+        
+        // Garantir que os campos numéricos são números
+        const compraLimpa = {
+            ...compra,
+            quantidade: Number(compra.quantidade),
+            valor_compra: Number(compra.valor_compra),
+            valor_total: Number(compra.valor_total)
+        }
+        
         const { data, error } = await supabase
             .from('compras')
-            .update(compra)
+            .update(compraLimpa)
             .eq('id', id)
             .select()
+        
+        if (error) {
+            console.error('Erro Supabase updateCompra:', error)
+        }
+        
         return { data, error }
     },
     
