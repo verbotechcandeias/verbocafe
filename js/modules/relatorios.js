@@ -258,7 +258,6 @@ class RelatoriosModule {
                     formaPagamentoClass = 'badge badge-info'
                 }
                 
-                // USAR dateTime.formatDateTime para consistência
                 const dataHoraFormatada = dateTime.formatDateTime(item.data_venda)
                 
                 const tr = document.createElement('tr')
@@ -291,6 +290,7 @@ class RelatoriosModule {
             
             const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
             
+            // Linha de subtotal - CORRIGIDA com colspan correto
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
@@ -300,7 +300,8 @@ class RelatoriosModule {
                     <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
                 </td>
                 <td><strong>${subtotalQuantidade}</strong></td>
-                <td colspan="3"></td>
+                <td colspan="2"></td>
+                <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
                 <td></td>
                 <td><strong>${percentualMedioLucro.toFixed(2)}%</strong></td>
                 <td><strong>${formatters.formatCurrency(subtotalLucro)}</strong></td>
@@ -310,12 +311,14 @@ class RelatoriosModule {
         
         const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
         
+        // Linha de total geral - CORRIGIDA com colspan correto
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
                     <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
                     <td><strong>${totalGeralQuantidade}</strong></td>
-                    <td colspan="3"></td>
+                    <td colspan="2"></td>
+                    <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
                     <td></td>
                     <td><strong>${percentualMedioGeral.toFixed(2)}%</strong></td>
                     <td><strong>${formatters.formatCurrency(totalGeralLucro)}</strong></td>
