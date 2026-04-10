@@ -842,9 +842,26 @@ class VendasModule {
         const valorTotal = document.getElementById('valorTotalVenda')
         if (valorTotal) valorTotal.value = ''
     }
-    
-    async realizarVenda() {
-        // Validar se há itens
+
+    alternarBotoesVenda(modoEdicao) {
+        const btnRealizar = document.getElementById('btnRealizarVenda')
+        const btnAlterar = document.getElementById('btnAlterarVenda')
+        
+        if (btnRealizar && btnAlterar) {
+            if (modoEdicao) {
+                btnRealizar.style.display = 'none'
+                btnAlterar.style.display = 'inline-flex'
+            } else {
+                btnRealizar.style.display = 'inline-flex'
+                btnAlterar.style.display = 'none'
+            }
+        }
+    }
+
+    /**
+     * Confirma a alteração da venda (chamado pelo botão Alterar Venda)
+     */
+    async confirmarAlteracao() {
         if (this.itensVenda.length === 0) {
             this.showError('Adicione pelo menos um produto à venda')
             return
@@ -886,16 +903,72 @@ class VendasModule {
         }
         
         try {
-            this.showLoading(this.vendaEditando ? 'Atualizando venda...' : 'Realizando venda...')
+            this.showLoading('Atualizando venda...')
             
-            if (this.vendaEditando) {
-                await this.atualizarVendaExistente()
-            } else {
-                await this.criarNovaVenda()
-            }
+            await this.atualizarVendaExistente()
             
             this.hideLoading()
-            this.showSuccess(this.vendaEditando ? 'Venda atualizada com sucesso!' : 'Venda realizada com sucesso!')
+            this.showSuccess('Venda alterada com sucesso!')
+            
+            this.limparVenda()
+            this.alternarBotoesVenda(false)  // Voltar para botão Realizar
+            
+            await this.carregarProdutos()
+            await this.carregarVendasDoDia()
+            
+        } catch (err) {
+            this.hideLoading()
+            console.error('Erro ao alterar venda:', err)
+            this.showError('Erro ao alterar venda: ' + err.message)
+        }
+    }
+    
+    async realizarVenda() {
+        // Se estiver em modo de edição, não permitir usar o botão Realizar
+        if (this.vendaEditando) {
+            this.showError('Use o botão "Alterar Venda" para confirmar as alterações')
+            return
+        }
+        
+        if (this.itensVenda.length === 0) {
+            this.showError('Adicione pelo menos um produto à venda')
+            return
+        }
+        
+        // Validar forma de pagamento
+        const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
+        const formaPagamento = formaPagamentoSelect?.value
+        
+        if (!formaPagamento) {
+            this.showError('Selecione a forma de pagamento')
+            if (formaPagamentoSelect) {
+                validators.showValidationError(formaPagamentoSelect, 'Selecione a forma de pagamento')
+                formaPagamentoSelect.focus()
+            }
+            return
+        }
+        
+        // Validar estoque
+        for (const item of this.itensVenda) {
+            const produto = this.produtos.find(p => p.id === item.produto_id)
+            if (!produto) {
+                this.showError(`Produto não encontrado: ${item.descricao_produto}`)
+                return
+            }
+            
+            if (produto.quantidade < item.quantidade) {
+                this.showError(`Estoque insuficiente para: ${item.descricao_produto}. Disponível: ${produto.quantidade}`)
+                return
+            }
+        }
+        
+        try {
+            this.showLoading('Realizando venda...')
+            
+            await this.criarNovaVenda()
+            
+            this.hideLoading()
+            this.showSuccess('Venda realizada com sucesso!')
             
             this.limparVenda()
             
@@ -927,6 +1000,9 @@ class VendasModule {
             this.formaPagamento = 'Pendente'
             validators.clearValidationError(formaPagamento)
         }
+        
+        // ALTERNAR BOTÕES para modo nova venda
+        this.alternarBotoesVenda(false)
     }
     
     async criarNovaVenda() {
@@ -1126,6 +1202,9 @@ class VendasModule {
             this.vendaEditando = venda
             this.numeroVenda = venda.numero_venda
             this.setNumeroVenda()
+            
+            // ALTERNAR BOTÕES para modo edição
+            this.alternarBotoesVenda(true)
             
             // Definir forma de pagamento no select
             const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
@@ -1330,7 +1409,7 @@ class VendasModule {
     cancelarVenda() {
         if (this.itensVenda.length > 0 || this.vendaEditando) {
             const mensagem = this.vendaEditando ? 
-                'Cancelar edição da venda? Os itens não serão salvos.' : 
+                'Cancelar edição da venda? As alterações não serão salvas.' : 
                 'Cancelar esta venda? Os itens adicionados serão perdidos.'
             
             if (!confirm(mensagem)) {
@@ -1354,6 +1433,9 @@ class VendasModule {
             this.formaPagamento = 'Pendente'
             validators.clearValidationError(formaPagamento)
         }
+        
+        // ALTERNAR BOTÕES para modo nova venda
+        this.alternarBotoesVenda(false)
     }
 
     // Método para o botão Cancelar (chamado pelo onclick)

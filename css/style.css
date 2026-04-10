@@ -1031,3 +1031,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 #tabelaRelatorioVendas td {
     vertical-align: middle;
 }
+
+#btnAlterarVenda {
+    background: #6c5ce7;
+    color: white;
+}
+
+#btnAlterarVenda:hover {
+    background: #5b4bc4;
+}

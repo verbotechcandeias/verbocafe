@@ -372,8 +372,11 @@
                         </div>
                         
                         <div class="form-actions mt-4">
-                            <button type="button" class="btn btn-success" onclick="vendasModule.realizarVenda()">
+                            <button type="button" class="btn btn-success" id="btnRealizarVenda" onclick="vendasModule.realizarVenda()">
                                 <i class="fas fa-check"></i> Realizar Venda
+                            </button>
+                            <button type="button" class="btn btn-primary" id="btnAlterarVenda" onclick="vendasModule.confirmarAlteracao()" style="display: none;">
+                                <i class="fas fa-save"></i> Alterar Venda
                             </button>
                             <button type="button" class="btn btn-danger" onclick="vendasModule.cancelarVenda()">
                                 <i class="fas fa-times"></i> Cancelar Venda
