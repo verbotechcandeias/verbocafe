@@ -108,22 +108,22 @@ class RelatoriosModule {
                     }
                     
                     const formaPagamento = item.forma_pagamento || venda.forma_pagamento || '-'
+                    const descricao = venda.descricao_pendente || item.descricao_pendente || null
                     
                     itensComVenda.push({
                         ...item,
                         numero_venda: venda.numero_venda,
-                        data_venda: venda.data_venda,  // Passar a data original
+                        data_venda: venda.data_venda,
                         fornecedor: fornecedor,
                         categoria: categoria,
-                        forma_pagamento: formaPagamento
+                        forma_pagamento: formaPagamento,
+                        descricao_pendente: descricao  // Adicionar descrição
                     })
                 }
             }
             
             this.dadosVendas = itensComVenda
             console.log('Itens de venda combinados:', this.dadosVendas.length)
-            console.log('Primeiro item - data original:', this.dadosVendas[0]?.data_venda)
-            console.log('Primeiro item - data formatada:', dateTime.formatDateTime(this.dadosVendas[0]?.data_venda))
             
             this.renderizarVendas(this.dadosVendas)
             this.preencherFiltroDatas('vendas')
@@ -235,7 +235,7 @@ class RelatoriosModule {
         tbody.innerHTML = ''
         
         if (!dados || dados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
+            tbody.innerHTML = '<tr><td colspan="13" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
             if (tfoot) tfoot.innerHTML = ''
             return
         }
@@ -266,6 +266,7 @@ class RelatoriosModule {
                 const fornecedor = item.fornecedor || '-'
                 const categoria = item.categoria || '-'
                 const formaPagamento = item.forma_pagamento || '-'
+                const descricao = item.descricao_pendente || '-'
                 
                 let formaPagamentoClass = ''
                 if (formaPagamento === 'Pendente') {
@@ -277,6 +278,11 @@ class RelatoriosModule {
                 }
                 
                 const dataHoraFormatada = dateTime.formatDateTime(item.data_venda)
+                
+                // Truncar descrição se for muito longa
+                const descricaoExibida = descricao.length > 40 
+                    ? descricao.substring(0, 40) + '...' 
+                    : descricao
                 
                 const tr = document.createElement('tr')
                 tr.innerHTML = `
@@ -290,6 +296,7 @@ class RelatoriosModule {
                     <td>${formatters.formatCurrency(item.desconto || 0)}</td>
                     <td>${formatters.formatCurrency(item.valor_total)}</td>
                     <td><span class="${formaPagamentoClass}">${formaPagamento}</span></td>
+                    <td title="${descricao}">${descricaoExibida}</td>
                     <td>${percentualLucro.toFixed(2)}%</td>
                     <td>${formatters.formatCurrency(lucro)}</td>
                 `
@@ -308,7 +315,6 @@ class RelatoriosModule {
             
             const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
             
-            // Linha de subtotal - CORRIGIDA com colspan correto
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
@@ -318,8 +324,8 @@ class RelatoriosModule {
                     <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
                 </td>
                 <td><strong>${subtotalQuantidade}</strong></td>
-                <td colspan="2"></td>
-                <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
+                <td colspan="3"></td>
+                <td></td>
                 <td></td>
                 <td><strong>${percentualMedioLucro.toFixed(2)}%</strong></td>
                 <td><strong>${formatters.formatCurrency(subtotalLucro)}</strong></td>
@@ -329,14 +335,13 @@ class RelatoriosModule {
         
         const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
         
-        // Linha de total geral - CORRIGIDA com colspan correto
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
                     <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
                     <td><strong>${totalGeralQuantidade}</strong></td>
-                    <td colspan="2"></td>
-                    <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
+                    <td colspan="3"></td>
+                    <td></td>
                     <td></td>
                     <td><strong>${percentualMedioGeral.toFixed(2)}%</strong></td>
                     <td><strong>${formatters.formatCurrency(totalGeralLucro)}</strong></td>

@@ -13,6 +13,7 @@ class VendasModule {
         this.numeroVenda = this.gerarNumeroVenda()
         this.compras = []
         this.formaPagamento = 'Pendente'
+        this.descricaoPendente = ''
     }
 
     showConfirm(options = {}) {
@@ -175,14 +176,13 @@ class VendasModule {
                 this.onProdutoSelecionado(e.target)
             })
         }
-
-         // Adicionar listener para forma de pagamento
+        
+        // Listener para forma de pagamento
         const formaPagamento = document.getElementById('formaPagamentoVenda')
         if (formaPagamento) {
             formaPagamento.addEventListener('change', (e) => {
                 this.formaPagamento = e.target.value
-                console.log('Forma de pagamento selecionada:', this.formaPagamento)
-                // Limpar erro de validação quando selecionar
+                this.toggleDescricaoPendente(e.target.value)
                 validators.clearValidationError(e.target)
             })
         }
@@ -223,6 +223,30 @@ class VendasModule {
             form.addEventListener('submit', (e) => {
                 e.preventDefault()
             })
+        }
+    }
+
+    toggleDescricaoPendente(formaPagamento) {
+        const container = document.getElementById('descricaoPendenteContainer')
+        const descricaoInput = document.getElementById('descricaoPendente')
+        
+        if (container) {
+            if (formaPagamento === 'Pendente') {
+                container.style.display = 'block'
+                if (descricaoInput) {
+                    descricaoInput.required = true
+                    // Se estiver editando, preencher com a descrição salva
+                    if (this.vendaEditando && this.vendaEditando.descricao_pendente) {
+                        descricaoInput.value = this.vendaEditando.descricao_pendente
+                    }
+                }
+            } else {
+                container.style.display = 'none'
+                if (descricaoInput) {
+                    descricaoInput.required = false
+                    descricaoInput.value = ''
+                }
+            }
         }
     }
     
@@ -393,25 +417,16 @@ class VendasModule {
                 }
                 
                 if (itens && itens.length > 0) {
-                    const itensComVenda = itens.map(item => {
-                        // Preservar valor_compra do item
-                        let valorCompra = item.valor_compra
-                        
-                        // Se não tiver, buscar do produto
-                        if (!valorCompra || valorCompra === 0) {
-                            valorCompra = this.buscarValorCompraProduto(item.codigo_produto)
-                        }
-                        
-                        return {
-                            ...item,
-                            venda_id: venda.id,
-                            numero_venda: venda.numero_venda,
-                            data_venda: venda.data_venda,
-                            fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),
-                            categoria: item.categoria || this.getCategoriaProduto(item.produto_id),
-                            valor_compra: valorCompra    // Preservar valor_compra
-                        }
-                    })
+                    const itensComVenda = itens.map(item => ({
+                        ...item,
+                        venda_id: venda.id,
+                        numero_venda: venda.numero_venda,
+                        data_venda: venda.data_venda,
+                        fornecedor: item.fornecedor || this.getFornecedorProduto(item.produto_id),
+                        categoria: item.categoria || this.getCategoriaProduto(item.produto_id),
+                        forma_pagamento: venda.forma_pagamento || item.forma_pagamento || '-',
+                        descricao_pendente: venda.descricao_pendente || item.descricao_pendente || null  // Incluir descrição
+                    }))
                     
                     todosItens.push(...itensComVenda)
                 }
@@ -440,7 +455,7 @@ class VendasModule {
         if (!itens || itens.length === 0) {
             const tr = document.createElement('tr')
             tr.innerHTML = `
-                <td colspan="9" style="text-align: center; padding: 20px; color: #999;">
+                <td colspan="10" style="text-align: center; padding: 20px; color: #999;">
                     <i class="fas fa-info-circle"></i> Nenhuma venda realizada hoje
                 </td>
             `
@@ -469,15 +484,14 @@ class VendasModule {
             // CORREÇÃO: Usar dateTime.formatDateTime para converter UTC -> Brasília
             let dataHora = '-'
             if (item.data_venda) {
-                // A função formatDateTime já subtrai 3 horas do UTC
                 dataHora = dateTime.formatDateTime(item.data_venda)
-                console.log('Data original (UTC):', item.data_venda, '→ Data exibida (Brasília):', dataHora)
             }
             
             const valorTotal = parseFloat(item.valor_total) || 0
             const fornecedor = item.fornecedor || this.getFornecedorProduto(item.produto_id) || '-'
             const categoria = item.categoria || this.getCategoriaProduto(item.produto_id) || '-'
             const formaPagamento = item.forma_pagamento || '-'
+            const descricao = item.descricao_pendente || '-'
             
             // Definir classe de cor para forma de pagamento
             let formaPagamentoClass = ''
@@ -491,6 +505,11 @@ class VendasModule {
                 formaPagamentoClass = 'badge badge-secondary'
             }
             
+            // Truncar descrição se for muito longa
+            const descricaoExibida = descricao.length > 30 
+                ? descricao.substring(0, 30) + '...' 
+                : descricao
+            
             tr.innerHTML = `
                 <td>${dataHora}</td>
                 <td>${item.numero_venda || '-'}</td>
@@ -500,6 +519,7 @@ class VendasModule {
                 <td>${item.quantidade || 0}</td>
                 <td>${formatters.formatCurrency(valorTotal)}</td>
                 <td><span class="${formaPagamentoClass}">${formaPagamento}</span></td>
+                <td title="${descricao}">${descricaoExibida}</td>
                 <td>
                     <button class="btn-icon" onclick="vendasModule.editarItemVenda('${item.venda_id}', '${item.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
@@ -977,6 +997,22 @@ class VendasModule {
             return
         }
         
+        // Validar descrição se for Pendente
+        if (formaPagamento === 'Pendente') {
+            const descricaoInput = document.getElementById('descricaoPendente')
+            const descricao = descricaoInput?.value?.trim()
+            
+            if (!descricao) {
+                this.showError('Informe a descrição/motivo do pendente')
+                if (descricaoInput) {
+                    validators.showValidationError(descricaoInput, 'Descrição é obrigatória para vendas pendentes')
+                    descricaoInput.focus()
+                }
+                return
+            }
+            this.descricaoPendente = descricao
+        }
+        
         // Validar estoque
         for (const item of this.itensVenda) {
             const produto = this.produtos.find(p => p.id === item.produto_id)
@@ -1021,7 +1057,6 @@ class VendasModule {
     }
     
     async realizarVenda() {
-        // Se estiver em modo de edição, não permitir usar o botão Realizar
         if (this.vendaEditando) {
             this.showError('Use o botão "Alterar Venda" para confirmar as alterações')
             return
@@ -1043,6 +1078,22 @@ class VendasModule {
                 formaPagamentoSelect.focus()
             }
             return
+        }
+        
+        // Validar descrição se for Pendente
+        if (formaPagamento === 'Pendente') {
+            const descricaoInput = document.getElementById('descricaoPendente')
+            const descricao = descricaoInput?.value?.trim()
+            
+            if (!descricao) {
+                this.showError('Informe a descrição/motivo do pendente')
+                if (descricaoInput) {
+                    validators.showValidationError(descricaoInput, 'Descrição é obrigatória para vendas pendentes')
+                    descricaoInput.focus()
+                }
+                return
+            }
+            this.descricaoPendente = descricao
         }
         
         // Validar estoque
@@ -1089,6 +1140,7 @@ class VendasModule {
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
         this.setDataVenda()
+        this.descricaoPendente = ''
         
         // Resetar forma de pagamento
         const formaPagamento = document.getElementById('formaPagamentoVenda')
@@ -1096,9 +1148,40 @@ class VendasModule {
             formaPagamento.value = ''
             this.formaPagamento = 'Pendente'
             validators.clearValidationError(formaPagamento)
+            this.toggleDescricaoPendente('')
+        }
+    }
+
+    cancelarVenda() {
+        if (this.itensVenda.length > 0 || this.vendaEditando) {
+            const mensagem = this.vendaEditando ? 
+                'Cancelar edição da venda? As alterações não serão salvas.' : 
+                'Cancelar esta venda? Os itens adicionados serão perdidos.'
+            
+            if (!confirm(mensagem)) {
+                return
+            }
         }
         
-        // ALTERNAR BOTÕES para modo nova venda
+        this.itensVenda = []
+        this.vendaEditando = null
+        this.limparFormProduto()
+        this.renderizarItensVenda()
+        this.atualizarTotais()
+        this.numeroVenda = this.gerarNumeroVenda()
+        this.setNumeroVenda()
+        this.setDataVenda()
+        this.descricaoPendente = ''
+        
+        // Resetar forma de pagamento
+        const formaPagamento = document.getElementById('formaPagamentoVenda')
+        if (formaPagamento) {
+            formaPagamento.value = ''
+            this.formaPagamento = 'Pendente'
+            validators.clearValidationError(formaPagamento)
+            this.toggleDescricaoPendente('')
+        }
+        
         this.alternarBotoesVenda(false)
     }
     
@@ -1107,10 +1190,10 @@ class VendasModule {
         
         const primeiroItem = this.itensVenda[0]
         const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || 'Pendente'
+        const descricaoPendente = formaPagamento === 'Pendente' ? this.descricaoPendente : null
         
-        // Usar getAgoraISO() para obter a data/hora correta em UTC para o banco
         const venda = {
-            data_venda: dateTime.getAgoraISO(),
+            data_venda: new Date().toISOString(),
             numero_venda: this.numeroVenda,
             codigo_produto: primeiroItem.codigo_produto,
             descricao_produto: primeiroItem.descricao_produto,
@@ -1120,7 +1203,8 @@ class VendasModule {
             valor_unitario: primeiroItem.valor_unitario,
             desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
             valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0),
-            forma_pagamento: formaPagamento
+            forma_pagamento: formaPagamento,
+            descricao_pendente: descricaoPendente  // Adicionar descrição
         }
         
         console.log('Data da venda a ser salva (UTC):', venda.data_venda)
@@ -1184,14 +1268,9 @@ class VendasModule {
         }
         
         const primeiroItem = this.itensVenda[0]
+        const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || this.vendaEditando.forma_pagamento || 'Pendente'
+        const descricaoPendente = formaPagamento === 'Pendente' ? this.descricaoPendente : null
         
-        // Obter a forma de pagamento selecionada
-        const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
-        const formaPagamento = formaPagamentoSelect?.value || this.vendaEditando.forma_pagamento || 'Pendente'
-        
-        console.log('Forma de pagamento para atualização:', formaPagamento)
-        
-        // Atualizar a venda (resumo) - INCLUIR forma_pagamento
         const vendaAtualizada = {
             data_venda: this.vendaEditando.data_venda,
             numero_venda: this.numeroVenda,
@@ -1203,7 +1282,8 @@ class VendasModule {
             valor_unitario: primeiroItem.valor_unitario,
             desconto: this.itensVenda.reduce((sum, item) => sum + (item.desconto || 0), 0),
             valor_total: this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0),
-            forma_pagamento: formaPagamento  // IMPORTANTE: Atualizar forma de pagamento
+            forma_pagamento: formaPagamento,
+            descricao_pendente: descricaoPendente  // Adicionar descrição
         }
         
         console.log('Venda atualizada a ser salva:', vendaAtualizada)
@@ -1309,6 +1389,13 @@ class VendasModule {
                 formaPagamentoSelect.value = venda.forma_pagamento || 'Pendente'
                 this.formaPagamento = venda.forma_pagamento || 'Pendente'
                 validators.clearValidationError(formaPagamentoSelect)
+                
+                // Mostrar/esconder campo de descrição e preencher
+                this.toggleDescricaoPendente(venda.forma_pagamento)
+                if (venda.forma_pagamento === 'Pendente' && venda.descricao_pendente) {
+                    this.descricaoPendente = venda.descricao_pendente
+                    document.getElementById('descricaoPendente').value = venda.descricao_pendente
+                }
             }
             
             // Carregar itens

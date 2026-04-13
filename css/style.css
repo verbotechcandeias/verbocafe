@@ -1236,3 +1236,68 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 #tabelaRelatorioCompras tfoot td {
     padding: 12px 15px;
 }
+
+/* Adicionar no style.css */
+#descricaoPendenteContainer {
+    animation: fadeIn 0.3s ease;
+}
+
+#descricaoPendente {
+    resize: vertical;
+    min-height: 80px;
+    font-family: 'Inter', sans-serif;
+}
+
+#descricaoPendente:focus {
+    outline: none;
+    border-color: #8B4513;
+    box-shadow: 0 0 0 3px rgba(139, 69, 19, 0.1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Adicionar no style.css */
+#tabelaVendasDia td:nth-child(9) {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #666;
+    font-style: italic;
+}
+
+#tabelaVendasDia td:nth-child(9):hover {
+    white-space: normal;
+    word-break: break-word;
+    background-color: #f8f9fa;
+    cursor: help;
+}
+
+.badge-secondary {
+    background: #e2e3e5;
+    color: #383d41;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Adicionar no style.css */
+#tabelaRelatorioVendas td:nth-child(11) {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #666;
+    font-style: italic;
+}
+
+#tabelaRelatorioVendas td:nth-child(11):hover {
+    white-space: normal;
+    word-break: break-word;
+    background-color: #f8f9fa;
+    cursor: help;
+}

@@ -289,6 +289,7 @@
                             </div>
                         </div>
                         
+                        <!-- Seção Adicionar Produto -->
                         <div class="venda-produto-section">
                             <h3>Adicionar Produto</h3>
                             <div class="form-grid">
@@ -332,6 +333,7 @@
                             </button>
                         </div>
                         
+                        <!-- Seção Itens da Venda Atual -->
                         <div class="itens-venda-section mt-4">
                             <h3>Itens da Venda Atual</h3>
                             <div class="table-responsive">
@@ -361,7 +363,7 @@
                             </div>
                         </div>
                         
-                        <!-- Campo Forma de Pagamento depois do Valor Total -->
+                        <!-- Campo Forma de Pagamento -->
                         <div class="form-row mt-4">
                             <div class="form-group">
                                 <label for="formaPagamentoVenda">Forma de Pagamento <span style="color: red;">*</span></label>
@@ -376,6 +378,16 @@
                             </div>
                         </div>
                         
+                        <!-- Campo Descrição para Pendente (inicialmente oculto) -->
+                        <div class="form-row" id="descricaoPendenteContainer" style="display: none;">
+                            <div class="form-group">
+                                <label for="descricaoPendente">Descrição / Motivo <span style="color: red;">*</span></label>
+                                <textarea id="descricaoPendente" class="form-control" rows="3" 
+                                    placeholder="Informe o motivo do pendente..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Botões de Ação -->
                         <div class="form-actions mt-4">
                             <button type="button" class="btn btn-success" id="btnRealizarVenda" onclick="vendasModule.realizarVenda()">
                                 <i class="fas fa-check"></i> Realizar Venda
@@ -415,6 +427,7 @@
                                     <th>Qtd</th>
                                     <th>Valor Venda</th>
                                     <th>Forma Pagamento</th>
+                                    <th>Descrição</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -426,13 +439,13 @@
                                     <td id="totalVendasDia">R$ 0,00</td>
                                     <td></td>
                                     <td></td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
-        </div>
     </template>
 
     <!-- Template Auditoria -->
@@ -663,6 +676,7 @@
                                     <th>Desconto</th>
                                     <th>Valor Total</th>
                                     <th>Forma Pagamento</th>
+                                    <th>Descrição</th>
                                     <th>% Lucro</th>
                                     <th>Valor Lucro</th>
                                 </tr>
