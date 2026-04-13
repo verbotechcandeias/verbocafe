@@ -279,7 +279,6 @@ class RelatoriosModule {
                 
                 const dataHoraFormatada = dateTime.formatDateTime(item.data_venda)
                 
-                // Truncar descrição se for muito longa
                 const descricaoExibida = descricao.length > 40 
                     ? descricao.substring(0, 40) + '...' 
                     : descricao
@@ -315,6 +314,7 @@ class RelatoriosModule {
             
             const percentualMedioLucro = subtotalCusto > 0 ? (subtotalLucro / subtotalCusto) * 100 : 0
             
+            // Linha de Subtotal - CORRIGIDA
             const trSubtotal = document.createElement('tr')
             trSubtotal.style.backgroundColor = '#f8f9fa'
             trSubtotal.style.fontWeight = 'bold'
@@ -324,7 +324,8 @@ class RelatoriosModule {
                     <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
                 </td>
                 <td><strong>${subtotalQuantidade}</strong></td>
-                <td colspan="3"></td>
+                <td colspan="2"></td>
+                <td><strong>${formatters.formatCurrency(subtotalVendas)}</strong></td>
                 <td></td>
                 <td></td>
                 <td><strong>${percentualMedioLucro.toFixed(2)}%</strong></td>
@@ -335,12 +336,14 @@ class RelatoriosModule {
         
         const percentualMedioGeral = totalGeralCusto > 0 ? (totalGeralLucro / totalGeralCusto) * 100 : 0
         
+        // Linha de Total Geral - CORRIGIDA
         if (tfoot) {
             tfoot.innerHTML = `
                 <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
                     <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
                     <td><strong>${totalGeralQuantidade}</strong></td>
-                    <td colspan="3"></td>
+                    <td colspan="2"></td>
+                    <td><strong>${formatters.formatCurrency(totalGeralVendas)}</strong></td>
                     <td></td>
                     <td></td>
                     <td><strong>${percentualMedioGeral.toFixed(2)}%</strong></td>
