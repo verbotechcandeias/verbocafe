@@ -748,6 +748,260 @@ class RelatoriosModule {
         `)
         printWindow.document.close()
     }
+
+    exportarXLSVendas() {
+        const tabela = document.getElementById('tabelaRelatorioVendas')
+        
+        if (!tabela) {
+            console.error('Tabela não encontrada')
+            this.showError('Erro ao gerar arquivo Excel')
+            return
+        }
+        
+        try {
+            // Obter dados da tabela
+            const dados = this.obterDadosTabela(tabela)
+            
+            // Criar conteúdo CSV (formato que o Excel abre)
+            let csvContent = ''
+            
+            // Adicionar cabeçalho com título
+            csvContent += 'VERBO CAFÉ - RELATÓRIO DE VENDAS\n'
+            csvContent += `Data de emissão: ${dateTime.getAgoraFormatado()}\n\n`
+            
+            // Adicionar cabeçalho da tabela
+            const headers = []
+            const headerCells = tabela.querySelectorAll('thead th')
+            headerCells.forEach(cell => {
+                headers.push(this.limparTexto(cell.textContent))
+            })
+            csvContent += headers.join(';') + '\n'
+            
+            // Adicionar linhas de dados (tbody)
+            const tbody = tabela.querySelector('tbody')
+            const rows = tbody.querySelectorAll('tr')
+            
+            rows.forEach(row => {
+                const rowData = []
+                const cells = row.querySelectorAll('td')
+                
+                cells.forEach(cell => {
+                    // Remover formatação HTML e pegar apenas o texto
+                    let text = this.limparTexto(cell.textContent)
+                    // Remover R$ e formatar números
+                    text = text.replace('R$', '').trim()
+                    rowData.push(text)
+                })
+                
+                // Só adicionar se tiver dados
+                if (rowData.length > 0) {
+                    csvContent += rowData.join(';') + '\n'
+                }
+            })
+            
+            // Adicionar rodapé (tfoot) se existir
+            const tfoot = tabela.querySelector('tfoot')
+            if (tfoot) {
+                const footRows = tfoot.querySelectorAll('tr')
+                footRows.forEach(row => {
+                    const rowData = []
+                    const cells = row.querySelectorAll('td')
+                    
+                    cells.forEach(cell => {
+                        let text = this.limparTexto(cell.textContent)
+                        text = text.replace('R$', '').trim()
+                        rowData.push(text)
+                    })
+                    
+                    if (rowData.length > 0) {
+                        csvContent += rowData.join(';') + '\n'
+                    }
+                })
+            }
+            
+            // Criar blob e download
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+            const link = document.createElement('a')
+            const url = URL.createObjectURL(blob)
+            
+            const dataHora = new Date()
+            const nomeArquivo = `relatorio_vendas_${dataHora.getFullYear()}${String(dataHora.getMonth() + 1).padStart(2, '0')}${String(dataHora.getDate()).padStart(2, '0')}_${String(dataHora.getHours()).padStart(2, '0')}${String(dataHora.getMinutes()).padStart(2, '0')}.csv`
+            
+            link.setAttribute('href', url)
+            link.setAttribute('download', nomeArquivo)
+            link.style.visibility = 'hidden'
+            
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            
+            this.showSuccess('Relatório exportado com sucesso!')
+            
+        } catch (err) {
+            console.error('Erro ao exportar para Excel:', err)
+            this.showError('Erro ao exportar arquivo')
+        }
+    }
+
+    // Método auxiliar para limpar texto
+    limparTexto(texto) {
+        if (!texto) return ''
+        
+        // Remover espaços extras, quebras de linha e caracteres especiais
+        return texto
+            .replace(/\s+/g, ' ')
+            .replace(/[^\w\sÀ-ÿ0-9.,%;-]/g, '')
+            .trim()
+    }
+
+    // Método para obter dados da tabela (alternativo)
+    obterDadosTabela(tabela) {
+        const dados = {
+            headers: [],
+            rows: [],
+            footers: []
+        }
+        
+        // Headers
+        const headerCells = tabela.querySelectorAll('thead th')
+        headerCells.forEach(cell => {
+            dados.headers.push(cell.textContent.trim())
+        })
+        
+        // Body rows
+        const tbody = tabela.querySelector('tbody')
+        const rows = tbody.querySelectorAll('tr')
+        rows.forEach(row => {
+            const rowData = []
+            const cells = row.querySelectorAll('td')
+            cells.forEach(cell => {
+                rowData.push(cell.textContent.trim())
+            })
+            if (rowData.length > 0) {
+                dados.rows.push(rowData)
+            }
+        })
+        
+        // Footer rows
+        const tfoot = tabela.querySelector('tfoot')
+        if (tfoot) {
+            const footRows = tfoot.querySelectorAll('tr')
+            footRows.forEach(row => {
+                const rowData = []
+                const cells = row.querySelectorAll('td')
+                cells.forEach(cell => {
+                    rowData.push(cell.textContent.trim())
+                })
+                if (rowData.length > 0) {
+                    dados.footers.push(rowData)
+                }
+            })
+        }
+        
+        return dados
+    }
+
+    exportarXLSCompras() {
+        const tabela = document.getElementById('tabelaRelatorioCompras')
+        this.exportarParaXLS(tabela, 'relatorio_compras')
+    }
+
+    exportarXLSAuditoria() {
+        const tabela = document.getElementById('tabelaRelatorioAuditoria')
+        this.exportarParaXLS(tabela, 'relatorio_auditoria')
+    }
+
+    // Método genérico para exportar XLS
+    exportarParaXLS(tabela, nomeBase) {
+        if (!tabela) {
+            console.error('Tabela não encontrada')
+            this.showError('Erro ao gerar arquivo Excel')
+            return
+        }
+        
+        try {
+            let csvContent = ''
+            
+            // Título baseado no nome
+            const titulos = {
+                'relatorio_compras': 'VERBO CAFÉ - RELATÓRIO DE COMPRAS',
+                'relatorio_auditoria': 'VERBO CAFÉ - RELATÓRIO DE AUDITORIA'
+            }
+            
+            csvContent += titulos[nomeBase] + '\n'
+            csvContent += `Data de emissão: ${dateTime.getAgoraFormatado()}\n\n`
+            
+            // Cabeçalho
+            const headers = []
+            const headerCells = tabela.querySelectorAll('thead th')
+            headerCells.forEach(cell => {
+                headers.push(this.limparTexto(cell.textContent))
+            })
+            csvContent += headers.join(';') + '\n'
+            
+            // Corpo
+            const tbody = tabela.querySelector('tbody')
+            const rows = tbody.querySelectorAll('tr')
+            
+            rows.forEach(row => {
+                const rowData = []
+                const cells = row.querySelectorAll('td')
+                
+                cells.forEach(cell => {
+                    let text = this.limparTexto(cell.textContent)
+                    text = text.replace('R$', '').trim()
+                    rowData.push(text)
+                })
+                
+                if (rowData.length > 0) {
+                    csvContent += rowData.join(';') + '\n'
+                }
+            })
+            
+            // Rodapé
+            const tfoot = tabela.querySelector('tfoot')
+            if (tfoot) {
+                const footRows = tfoot.querySelectorAll('tr')
+                footRows.forEach(row => {
+                    const rowData = []
+                    const cells = row.querySelectorAll('td')
+                    
+                    cells.forEach(cell => {
+                        let text = this.limparTexto(cell.textContent)
+                        text = text.replace('R$', '').trim()
+                        rowData.push(text)
+                    })
+                    
+                    if (rowData.length > 0) {
+                        csvContent += rowData.join(';') + '\n'
+                    }
+                })
+            }
+            
+            // Download
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+            const link = document.createElement('a')
+            const url = URL.createObjectURL(blob)
+            
+            const dataHora = new Date()
+            const nomeArquivo = `${nomeBase}_${dataHora.getFullYear()}${String(dataHora.getMonth() + 1).padStart(2, '0')}${String(dataHora.getDate()).padStart(2, '0')}_${String(dataHora.getHours()).padStart(2, '0')}${String(dataHora.getMinutes()).padStart(2, '0')}.csv`
+            
+            link.setAttribute('href', url)
+            link.setAttribute('download', nomeArquivo)
+            link.style.visibility = 'hidden'
+            
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            
+            this.showSuccess('Relatório exportado com sucesso!')
+            
+        } catch (err) {
+            console.error('Erro ao exportar:', err)
+            this.showError('Erro ao exportar arquivo')
+        }
+    }
+
 }
 
 export const relatoriosModule = new RelatoriosModule()

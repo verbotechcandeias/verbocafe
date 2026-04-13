@@ -1301,3 +1301,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     background-color: #f8f9fa;
     cursor: help;
 }
+
+.btn .fa-file-excel {
+    color: #1d6f42;
+}
+
+.btn-primary .fa-file-excel {
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1d6f42;
+}
