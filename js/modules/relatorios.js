@@ -36,6 +36,15 @@ class RelatoriosModule {
     }
     
     formatarDataExibicao(dataString) {
+        if (!dataString) return '-'
+        
+        // Se já estiver no formato YYYY-MM-DD (compras)
+        if (typeof dataString === 'string' && dataString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [ano, mes, dia] = dataString.split('-')
+            return `${dia}/${mes}/${ano}`
+        }
+        
+        // Para vendas e auditoria (com hora)
         return dateTime.formatDate(dataString)
     }
     
@@ -173,8 +182,8 @@ class RelatoriosModule {
         if (!tbody) return
         
         tbody.innerHTML = ''
-        let totalQuantidade = 0
-        let totalValorTotal = 0
+        let totalGeralQuantidade = 0
+        let totalGeralValor = 0
         
         if (!dados || dados.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>'
@@ -182,45 +191,97 @@ class RelatoriosModule {
             return
         }
         
-        // Ordenar por data (mais recente primeiro)
-        const dadosOrdenados = [...dados].sort((a, b) => 
-            new Date(b.data_compra) - new Date(a.data_compra)
-        )
+        // Agrupar compras por data
+        const comprasAgrupadas = this.agruparComprasPorData(dados)
         
-        dadosOrdenados.forEach(compra => {
-            const tr = document.createElement('tr')
+        // Ordenar datas em ordem decrescente
+        const datasOrdenadas = Object.keys(comprasAgrupadas).sort().reverse()
+        
+        datasOrdenadas.forEach(data => {
+            const compras = comprasAgrupadas[data]
             
-            // Calcular valor total se não existir
-            const quantidade = compra.quantidade || 0
-            const valorUnitario = parseFloat(compra.valor_compra) || 0
-            const valorTotal = compra.valor_total || (quantidade * valorUnitario)
+            // Variáveis para subtotal do dia
+            let subtotalQuantidade = 0
+            let subtotalValor = 0
             
-            tr.innerHTML = `
-                <td>${this.formatarDataExibicao(compra.data_compra)}</td>
-                <td>${compra.codigo_produto || '-'}</td>
-                <td>${compra.descricao_produto || '-'}</td>
-                <td>${compra.fornecedor || '-'}</td>
-                <td>${compra.categoria || '-'}</td>
-                <td>${quantidade}</td>
-                <td>${formatters.formatCurrency(valorUnitario)}</td>
-                <td>${formatters.formatCurrency(valorTotal)}</td>
+            // Renderizar cada compra do dia
+            compras.forEach(compra => {
+                const quantidade = compra.quantidade || 0
+                const valorUnitario = parseFloat(compra.valor_compra) || 0
+                const valorTotal = compra.valor_total || (quantidade * valorUnitario)
+                
+                const tr = document.createElement('tr')
+                tr.innerHTML = `
+                    <td>${this.formatarDataExibicao(compra.data_compra)}</td>
+                    <td>${compra.codigo_produto || '-'}</td>
+                    <td>${compra.descricao_produto || '-'}</td>
+                    <td>${compra.fornecedor || '-'}</td>
+                    <td>${compra.categoria || '-'}</td>
+                    <td>${quantidade}</td>
+                    <td>${formatters.formatCurrency(valorUnitario)}</td>
+                    <td>${formatters.formatCurrency(valorTotal)}</td>
+                `
+                tbody.appendChild(tr)
+                
+                // Acumular subtotais do dia
+                subtotalQuantidade += quantidade
+                subtotalValor += valorTotal
+                
+                // Acumular totais gerais
+                totalGeralQuantidade += quantidade
+                totalGeralValor += valorTotal
+            })
+            
+            // Adicionar linha de subtotal por data
+            const trSubtotal = document.createElement('tr')
+            trSubtotal.style.backgroundColor = '#f8f9fa'
+            trSubtotal.style.fontWeight = 'bold'
+            trSubtotal.style.borderTop = '2px solid #dee2e6'
+            trSubtotal.innerHTML = `
+                <td colspan="5" style="text-align: right;">
+                    <strong>Subtotal ${this.formatarDataExibicao(data)}</strong>
+                </td>
+                <td><strong>${subtotalQuantidade}</strong></td>
+                <td>-</td>
+                <td><strong>${formatters.formatCurrency(subtotalValor)}</strong></td>
             `
-            tbody.appendChild(tr)
-            
-            totalQuantidade += quantidade
-            totalValorTotal += valorTotal
+            tbody.appendChild(trSubtotal)
         })
         
+        // Adicionar linha de total geral no tfoot
         if (tfoot) {
             tfoot.innerHTML = `
-                <tr>
-                    <td colspan="5"><strong>TOTAL</strong></td>
-                    <td><strong>${totalQuantidade}</strong></td>
+                <tr style="background-color: #e9ecef; font-weight: bold; border-top: 3px solid #8B4513;">
+                    <td colspan="5" style="text-align: right;"><strong>TOTAL GERAL</strong></td>
+                    <td><strong>${totalGeralQuantidade}</strong></td>
                     <td>-</td>
-                    <td><strong>${formatters.formatCurrency(totalValorTotal)}</strong></td>
+                    <td><strong>${formatters.formatCurrency(totalGeralValor)}</strong></td>
                 </tr>
             `
         }
+    }
+
+    // Adicionar método para agrupar compras por data
+    agruparComprasPorData(compras) {
+        const agrupado = {}
+        
+        compras.forEach(compra => {
+            let data = compra.data_compra
+            
+            // Garantir que a data está no formato YYYY-MM-DD
+            if (typeof data === 'string' && data.includes('T')) {
+                data = data.split('T')[0]
+            }
+            
+            if (data) {
+                if (!agrupado[data]) {
+                    agrupado[data] = []
+                }
+                agrupado[data].push(compra)
+            }
+        })
+        
+        return agrupado
     }
     
     renderizarVendas(dados) {
@@ -545,9 +606,28 @@ class RelatoriosModule {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            const datasUnicas = [...new Set(dados.map(d => {
-                return this.extrairDataLocal(d[campoData])
-            }))].filter(d => d !== null).sort().reverse()
+            let datasUnicas
+            
+            if (tipo === 'compras') {
+                // Para compras, a data já vem como YYYY-MM-DD (sem hora)
+                datasUnicas = [...new Set(dados.map(d => {
+                    const data = d[campoData]
+                    // Se for string no formato YYYY-MM-DD, usar diretamente
+                    if (typeof data === 'string' && data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        return data
+                    }
+                    // Se tiver hora, extrair apenas a data sem conversão de fuso
+                    if (typeof data === 'string' && data.includes('T')) {
+                        return data.split('T')[0]
+                    }
+                    return null
+                }))].filter(d => d !== null).sort().reverse()
+            } else {
+                // Para vendas e auditoria, usar a função com ajuste de fuso
+                datasUnicas = [...new Set(dados.map(d => {
+                    return dateTime.extrairDataLocal(d[campoData])
+                }))].filter(d => d !== null).sort().reverse()
+            }
             
             console.log('Datas únicas encontradas:', datasUnicas)
             
@@ -567,12 +647,29 @@ class RelatoriosModule {
                 filtroData.appendChild(option)
             })
         } else {
+            // Modo consolidado (por mês)
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            const mesesUnicos = [...new Set(dados.map(d => {
-                return this.extrairMesAnoLocal(d[campoData])
-            }))].filter(m => m !== null).sort().reverse()
+            let mesesUnicos
+            
+            if (tipo === 'compras') {
+                // Para compras, extrair mês/ano diretamente da string YYYY-MM-DD
+                mesesUnicos = [...new Set(dados.map(d => {
+                    const data = d[campoData]
+                    if (typeof data === 'string' && data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        return data.substring(0, 7) // YYYY-MM
+                    }
+                    if (typeof data === 'string' && data.includes('T')) {
+                        return data.split('T')[0].substring(0, 7)
+                    }
+                    return null
+                }))].filter(m => m !== null).sort().reverse()
+            } else {
+                mesesUnicos = [...new Set(dados.map(d => {
+                    return dateTime.extrairMesAnoLocal(d[campoData])
+                }))].filter(m => m !== null).sort().reverse()
+            }
             
             if (mesesUnicos.length === 0) {
                 const option = document.createElement('option')
@@ -583,7 +680,7 @@ class RelatoriosModule {
             }
             
             const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
             
             mesesUnicos.forEach(mes => {
                 const [ano, mesNum] = mes.split('-')
@@ -637,21 +734,54 @@ class RelatoriosModule {
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            const dadosFiltrados = dados.filter(d => {
-                const dataItem = this.extrairDataLocal(d[campoData])
-                return dataItem === valorFiltro
-            })
+            let dadosFiltrados
+            
+            if (tipo === 'compras') {
+                // Para compras, comparar diretamente a data YYYY-MM-DD
+                dadosFiltrados = dados.filter(d => {
+                    const dataItem = d[campoData]
+                    let dataComparar = dataItem
+                    
+                    if (typeof dataItem === 'string' && dataItem.includes('T')) {
+                        dataComparar = dataItem.split('T')[0]
+                    }
+                    
+                    return dataComparar === valorFiltro
+                })
+            } else {
+                // Para vendas e auditoria, usar a função com ajuste de fuso
+                dadosFiltrados = dados.filter(d => {
+                    const dataItem = dateTime.extrairDataLocal(d[campoData])
+                    return dataItem === valorFiltro
+                })
+            }
             
             console.log(`Dados filtrados: ${dadosFiltrados.length} de ${dados.length}`)
             return dadosFiltrados
         } else {
+            // Modo consolidado (por mês)
             const campoData = tipo === 'compras' ? 'data_compra' : 
                             tipo === 'vendas' ? 'data_venda' : 'data_auditoria'
             
-            return dados.filter(d => {
-                const mesAno = this.extrairMesAnoLocal(d[campoData])
-                return mesAno === valorFiltro
-            })
+            if (tipo === 'compras') {
+                return dados.filter(d => {
+                    const dataItem = d[campoData]
+                    let mesAno = dataItem
+                    
+                    if (typeof dataItem === 'string' && dataItem.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        mesAno = dataItem.substring(0, 7)
+                    } else if (typeof dataItem === 'string' && dataItem.includes('T')) {
+                        mesAno = dataItem.split('T')[0].substring(0, 7)
+                    }
+                    
+                    return mesAno === valorFiltro
+                })
+            } else {
+                return dados.filter(d => {
+                    const mesAno = dateTime.extrairMesAnoLocal(d[campoData])
+                    return mesAno === valorFiltro
+                })
+            }
         }
     }
     

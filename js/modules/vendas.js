@@ -793,31 +793,36 @@ class VendasModule {
     // Aumentar quantidade
     aumentarQuantidade(index) {
         const item = this.itensVenda[index]
-        if (!item) return
+        if (!item) return false
         
         const produto = this.produtos.find(p => p.id === item.produto_id)
-        if (!produto) return
+        if (!produto) return false
         
-        // Verificar limite de estoque
-        let limite = produto.quantidade
+        // Calcular estoque disponível considerando a edição
+        let estoqueDisponivel = produto.quantidade
+        
+        // Se estiver editando, o estoque já foi devolvido? Não, ainda não!
+        // O estoque só será atualizado ao SALVAR a edição
+        // Durante a edição, podemos permitir qualquer quantidade
         if (this.vendaEditando) {
-            limite = 999 // Sem limite durante edição
+            estoqueDisponivel = 999 // Permitir qualquer quantidade durante edição
         }
         
-        if (item.quantidade < limite) {
+        if (item.quantidade < estoqueDisponivel) {
             item.quantidade++
             this.recalcularItem(item)
             this.renderizarItensVenda()
             this.atualizarTotais()
         } else {
-            this.showError(`Quantidade máxima disponível: ${limite}`)
+            this.showError(`Quantidade máxima disponível: ${estoqueDisponivel}`)
         }
+        return false
     }
 
     // Diminuir quantidade
     diminuirQuantidade(index) {
         const item = this.itensVenda[index]
-        if (!item) return
+        if (!item) return false
         
         if (item.quantidade > 1) {
             item.quantidade--
@@ -825,6 +830,7 @@ class VendasModule {
             this.renderizarItensVenda()
             this.atualizarTotais()
         }
+        return false
     }
 
     // Atualizar quantidade pelo input
@@ -834,17 +840,21 @@ class VendasModule {
         
         let quantidade = parseInt(novaQuantidade) || 1
         
-        // Validar quantidade mínima
         if (quantidade < 1) {
             quantidade = 1
         }
         
-        // Validar estoque
         const produto = this.produtos.find(p => p.id === item.produto_id)
-        if (produto && !this.vendaEditando) {
-            if (quantidade > produto.quantidade) {
-                this.showError(`Quantidade máxima disponível: ${produto.quantidade}`)
-                quantidade = produto.quantidade
+        if (produto) {
+            let estoqueDisponivel = produto.quantidade
+            
+            if (this.vendaEditando) {
+                estoqueDisponivel = 999 // Permitir qualquer quantidade durante edição
+            }
+            
+            if (quantidade > estoqueDisponivel) {
+                this.showError(`Quantidade máxima disponível: ${estoqueDisponivel}`)
+                quantidade = estoqueDisponivel
             }
         }
         
@@ -882,7 +892,7 @@ class VendasModule {
     // Recalcular valor total do item
     recalcularItem(item) {
         const valorBruto = item.quantidade * item.valor_unitario
-        item.valor_total = Math.max(0, valorBruto - item.desconto)
+        item.valor_total = Math.max(0, valorBruto - (item.desconto || 0))
     }
 
     async removerItem(index) {
@@ -1013,28 +1023,6 @@ class VendasModule {
             this.descricaoPendente = descricao
         }
         
-        // Validar estoque
-        for (const item of this.itensVenda) {
-            const produto = this.produtos.find(p => p.id === item.produto_id)
-            if (!produto) {
-                this.showError(`Produto não encontrado: ${item.descricao_produto}`)
-                return
-            }
-            
-            let quantidadeOriginal = 0
-            if (this.vendaEditando) {
-                const { data: itensOriginais } = await supabaseService.getItensVenda(this.vendaEditando.id)
-                const itemOriginal = itensOriginais?.find(i => i.produto_id === item.produto_id)
-                quantidadeOriginal = itemOriginal?.quantidade || 0
-            }
-            
-            const quantidadeNecessaria = item.quantidade - quantidadeOriginal
-            if (quantidadeNecessaria > 0 && produto.quantidade < quantidadeNecessaria) {
-                this.showError(`Estoque insuficiente para: ${item.descricao_produto}. Disponível: ${produto.quantidade}`)
-                return
-            }
-        }
-        
         try {
             this.showLoading('Atualizando venda...')
             
@@ -1044,7 +1032,7 @@ class VendasModule {
             this.showSuccess('Venda alterada com sucesso!')
             
             this.limparVenda()
-            this.alternarBotoesVenda(false)  // Voltar para botão Realizar
+            this.alternarBotoesVenda(false)
             
             await this.carregarProdutos()
             await this.carregarVendasDoDia()
@@ -1249,24 +1237,62 @@ class VendasModule {
     async atualizarVendaExistente() {
         console.log('Atualizando venda existente...')
         
-        // Buscar itens antigos para devolver ao estoque
+        // Buscar itens antigos da venda
         const { data: itensAntigos } = await supabaseService.getItensVenda(this.vendaEditando.id)
         
-        if (itensAntigos) {
-            console.log('Itens antigos:', itensAntigos)
-            
-            for (const item of itensAntigos) {
-                const produto = this.produtos.find(p => p.id === item.produto_id)
-                if (produto) {
-                    const novaQuantidade = produto.quantidade + item.quantidade
-                    await supabaseService.updateProduto(produto.id, {
-                        ...produto,
-                        quantidade: novaQuantidade
-                    })
-                }
+        if (!itensAntigos || itensAntigos.length === 0) {
+            console.error('Nenhum item antigo encontrado')
+            return
+        }
+        
+        console.log('Itens antigos:', itensAntigos)
+        console.log('Itens novos (editados):', this.itensVenda)
+        
+        // 1. DEVOLVER TODOS os itens antigos ao estoque
+        for (const itemAntigo of itensAntigos) {
+            const produto = this.produtos.find(p => p.id === itemAntigo.produto_id)
+            if (produto) {
+                const quantidadeDevolver = itemAntigo.quantidade
+                const novaQuantidade = produto.quantidade + quantidadeDevolver
+                
+                console.log(`Devolvendo ao estoque: ${produto.descricao_produto} - Qtd antiga: ${quantidadeDevolver} - Estoque antes: ${produto.quantidade} - Estoque depois: ${novaQuantidade}`)
+                
+                await supabaseService.updateProduto(produto.id, {
+                    ...produto,
+                    quantidade: novaQuantidade
+                })
+                
+                // Atualizar o produto local também
+                produto.quantidade = novaQuantidade
             }
         }
         
+        // 2. SUBTRAIR os novos itens do estoque
+        for (const itemNovo of this.itensVenda) {
+            const produto = this.produtos.find(p => p.id === itemNovo.produto_id)
+            if (produto) {
+                const quantidadeSubtrair = itemNovo.quantidade
+                const novaQuantidade = produto.quantidade - quantidadeSubtrair
+                
+                if (novaQuantidade < 0) {
+                    console.error(`Estoque insuficiente para: ${produto.descricao_produto}`)
+                    this.showError(`Estoque insuficiente para: ${produto.descricao_produto}`)
+                    return
+                }
+                
+                console.log(`Subtraindo do estoque: ${produto.descricao_produto} - Qtd nova: ${quantidadeSubtrair} - Estoque antes: ${produto.quantidade} - Estoque depois: ${novaQuantidade}`)
+                
+                await supabaseService.updateProduto(produto.id, {
+                    ...produto,
+                    quantidade: novaQuantidade
+                })
+                
+                // Atualizar o produto local também
+                produto.quantidade = novaQuantidade
+            }
+        }
+        
+        // 3. Atualizar a venda (resumo)
         const primeiroItem = this.itensVenda[0]
         const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || this.vendaEditando.forma_pagamento || 'Pendente'
         const descricaoPendente = formaPagamento === 'Pendente' ? this.descricaoPendente : null
@@ -1283,69 +1309,39 @@ class VendasModule {
             desconto: this.itensVenda.reduce((sum, item) => sum + (item.desconto || 0), 0),
             valor_total: this.itensVenda.reduce((sum, item) => sum + (item.valor_total || 0), 0),
             forma_pagamento: formaPagamento,
-            descricao_pendente: descricaoPendente  // Adicionar descrição
+            descricao_pendente: descricaoPendente
         }
         
-        console.log('Venda atualizada a ser salva:', vendaAtualizada)
+        console.log('Atualizando venda:', vendaAtualizada)
         
-        // Atualizar a venda no banco
-        const { data: vendaAtualizadaData, error: updateError } = await supabaseService.updateVenda(
-            this.vendaEditando.id, 
-            vendaAtualizada
-        )
+        await supabaseService.updateVenda(this.vendaEditando.id, vendaAtualizada)
         
-        if (updateError) {
-            console.error('Erro ao atualizar venda:', updateError)
-            throw updateError
-        }
-        
-        console.log('Venda atualizada com sucesso:', vendaAtualizadaData)
-        
-        // Excluir itens antigos
+        // 4. Excluir itens antigos
         await supabaseService.deleteItensVenda(this.vendaEditando.id)
         
-        // Inserir novos itens com forma_pagamento ATUALIZADA
-        const itensParaInserir = this.itensVenda.map(item => {
-            const valorCompra = item.valor_compra || this.buscarValorCompraProduto(item.codigo_produto) || 0
-            
-            return {
-                venda_id: this.vendaEditando.id,
-                produto_id: item.produto_id,
-                codigo_produto: item.codigo_produto,
-                descricao_produto: item.descricao_produto,
-                fornecedor: item.fornecedor,
-                categoria: item.categoria,
-                quantidade: item.quantidade,
-                valor_unitario: item.valor_unitario,
-                valor_compra: valorCompra,
-                desconto: item.desconto || 0,
-                valor_total: item.valor_total,
-                forma_pagamento: formaPagamento  // IMPORTANTE: Atualizar forma de pagamento nos itens
-            }
-        })
+        // 5. Inserir novos itens
+        const itensParaInserir = this.itensVenda.map(item => ({
+            venda_id: this.vendaEditando.id,
+            produto_id: item.produto_id,
+            codigo_produto: item.codigo_produto,
+            descricao_produto: item.descricao_produto,
+            fornecedor: item.fornecedor,
+            categoria: item.categoria,
+            quantidade: item.quantidade,
+            valor_unitario: item.valor_unitario,
+            valor_compra: item.valor_compra || this.buscarValorCompraProduto(item.codigo_produto) || 0,
+            desconto: item.desconto || 0,
+            valor_total: item.valor_total,
+            forma_pagamento: formaPagamento,
+            descricao_pendente: descricaoPendente
+        }))
         
-        console.log('Itens a serem inseridos na atualização:', itensParaInserir)
+        console.log('Inserindo novos itens:', itensParaInserir)
         
-        const { error: itensError } = await supabaseService.saveItensVenda(itensParaInserir)
+        const { error } = await supabaseService.saveItensVenda(itensParaInserir)
+        if (error) throw error
         
-        if (itensError) {
-            console.error('Erro ao salvar itens atualizados:', itensError)
-            throw itensError
-        }
-        
-        // Subtrair novos itens do estoque
-        for (const item of this.itensVenda) {
-            const produto = this.produtos.find(p => p.id === item.produto_id)
-            if (produto) {
-                const novaQuantidade = produto.quantidade - item.quantidade
-                await supabaseService.updateProduto(produto.id, {
-                    ...produto,
-                    quantidade: novaQuantidade
-                })
-            }
-        }
-        
-        console.log('Venda e itens atualizados com sucesso!')
+        console.log('Venda atualizada com sucesso!')
     }
     
     async editarItemVenda(vendaId, itemId) {
