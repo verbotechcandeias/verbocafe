@@ -788,98 +788,261 @@ class RelatoriosModule {
     exportarPDFCompras() {
         this.exportarPDF('compras', 'Relatório de Compras')
     }
-    
+
     exportarPDFVendas() {
         this.exportarPDF('vendas', 'Relatório de Vendas')
     }
-    
+
     exportarPDFAuditoria() {
         this.exportarPDF('auditoria', 'Relatório de Auditoria')
     }
-    
+
+    // Método genérico para exportar PDF
     exportarPDF(tipo, titulo) {
-        const tabela = document.getElementById('tabelaRelatorioAuditoria')
-    
+        const tabela = document.getElementById(`tabelaRelatorio${this.capitalizar(tipo)}`)
+        
         if (!tabela) {
             console.error('Tabela não encontrada')
+            this.showError('Erro ao gerar PDF')
             return
         }
         
-        const printWindow = window.open('', '_blank')
-        printWindow.document.write(`
+        // Criar clone da tabela para não afetar a original
+        const tabelaClone = tabela.cloneNode(true)
+        
+        // Remover botões de ação se existirem
+        const botoes = tabelaClone.querySelectorAll('.btn-icon, button, .form-actions')
+        botoes.forEach(btn => btn.remove())
+        
+        // Criar conteúdo HTML completo
+        const conteudo = `
             <!DOCTYPE html>
             <html>
                 <head>
-                    <title>Relatório de Auditoria - Verbo Café</title>
+                    <meta charset="UTF-8">
+                    <title>${titulo} - Verbo Café</title>
                     <style>
+                        * {
+                            margin: 0;
+                            padding: 0;
+                            box-sizing: border-box;
+                        }
+                        
                         body {
-                            font-family: Arial, sans-serif;
-                            padding: 20px;
+                            font-family: 'Inter', Arial, sans-serif;
+                            padding: 30px;
+                            background: white;
+                            color: #333;
                         }
-                        h1 {
+                        
+                        .header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 25px;
+                            padding-bottom: 15px;
+                            border-bottom: 2px solid #8B4513;
+                        }
+                        
+                        .header h1 {
                             color: #8B4513;
+                            font-size: 24px;
+                            font-weight: 600;
                         }
+                        
+                        .header p {
+                            font-size: 14px;
+                            color: #666;
+                        }
+                        
                         table {
                             width: 100%;
                             border-collapse: collapse;
                             margin-top: 20px;
+                            font-size: 13px;
                         }
-                        th, td {
-                            border: 1px solid #ddd;
-                            padding: 8px;
-                            text-align: left;
-                        }
+                        
                         th {
-                            background-color: #8B4513;
-                            color: white;
+                            background-color: #8B4513 !important;
+                            color: white !important;
+                            padding: 12px 8px !important;
+                            text-align: left;
+                            font-weight: 600;
+                            border: 1px solid #654321 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
                         }
+                        
+                        td {
+                            padding: 8px;
+                            border: 1px solid #ddd;
+                            vertical-align: middle;
+                        }
+                        
+                        tr:nth-child(even) {
+                            background-color: #f9f9f9;
+                        }
+                        
+                        tfoot tr {
+                            background-color: #e9ecef !important;
+                            font-weight: bold;
+                            border-top: 3px solid #8B4513 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        tfoot td {
+                            padding: 10px 8px;
+                        }
+                        
+                        .status-badge {
+                            padding: 4px 8px;
+                            border-radius: 12px;
+                            font-size: 11px;
+                            font-weight: 600;
+                            display: inline-block;
+                        }
+                        
                         .status-ok {
-                            color: green;
-                            font-weight: bold;
+                            background: #d4edda !important;
+                            color: #155724 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
                         }
+                        
                         .status-nao-ok {
-                            color: red;
+                            background: #f8d7da !important;
+                            color: #721c24 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        .badge {
+                            padding: 4px 8px;
+                            border-radius: 12px;
+                            font-size: 11px;
+                            font-weight: 600;
+                            display: inline-block;
+                        }
+                        
+                        .badge-success {
+                            background: #d4edda !important;
+                            color: #155724 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        .badge-warning {
+                            background: #fff3cd !important;
+                            color: #856404 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        .badge-danger {
+                            background: #f8d7da !important;
+                            color: #721c24 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        .badge-info {
+                            background: #d1ecf1 !important;
+                            color: #0c5460 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        
+                        .total-row {
+                            background-color: #f8f9fa;
                             font-weight: bold;
                         }
-                        .badge {
-                            padding: 5px 10px;
-                            border-radius: 20px;
+                        
+                        .footer {
+                            margin-top: 30px;
+                            padding-top: 15px;
+                            text-align: right;
                             font-size: 12px;
+                            color: #666;
+                            border-top: 1px solid #ddd;
                         }
-                        .badge-success {
-                            background: #d4edda;
-                            color: #155724;
-                        }
-                        .badge-danger {
-                            background: #f8d7da;
-                            color: #721c24;
-                        }
-                        .header {
-                            display: flex;
-                            justify-content: space-between;
-                            margin-bottom: 20px;
-                        }
+                        
                         @media print {
-                            body { padding: 0; }
-                            button { display: none; }
+                            body {
+                                padding: 15px;
+                            }
+                            
+                            .no-print {
+                                display: none;
+                            }
+                            
+                            table {
+                                page-break-inside: auto;
+                            }
+                            
+                            tr {
+                                page-break-inside: avoid;
+                                page-break-after: auto;
+                            }
+                            
+                            thead {
+                                display: table-header-group;
+                            }
+                            
+                            tfoot {
+                                display: table-footer-group;
+                            }
                         }
                     </style>
                 </head>
                 <body>
                     <div class="header">
-                        <h1>Verbo Café - Relatório de Auditoria</h1>
-                        <p><strong>Data de emissão:</strong> ${formatters.formatDateTime(new Date())}</p>
+                        <h1>Verbo Café - ${titulo}</h1>
+                        <p>Data de emissão: ${dateTime.getAgoraFormatado()}</p>
                     </div>
-                    ${tabela.outerHTML}
+                    
+                    ${tabelaClone.outerHTML}
+                    
+                    <div class="footer">
+                        <p>Verbo Café - Sistema de Gestão</p>
+                    </div>
+                    
                     <script>
+                        // Aplicar estilos às badges que possam ter sido perdidas
+                        document.querySelectorAll('.status-ok').forEach(el => {
+                            el.style.background = '#d4edda';
+                            el.style.color = '#155724';
+                        });
+                        
+                        document.querySelectorAll('.status-nao-ok').forEach(el => {
+                            el.style.background = '#f8d7da';
+                            el.style.color = '#721c24';
+                        });
+                        
+                        // Imprimir automaticamente
                         window.onload = function() {
-                            window.print();
+                            setTimeout(function() {
+                                window.print();
+                            }, 300);
                         }
                     </script>
                 </body>
             </html>
-        `)
+        `
+        
+        // Abrir em nova janela e imprimir
+        const printWindow = window.open('', '_blank')
+        
+        if (!printWindow) {
+            this.showError('Bloqueio de pop-up detectado. Permita pop-ups para este site.')
+            return
+        }
+        
+        printWindow.document.write(conteudo)
         printWindow.document.close()
+        
+        // Focar na janela
+        printWindow.focus()
     }
 
     exportarXLSVendas() {
