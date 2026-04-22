@@ -366,8 +366,18 @@ class VendasModule {
     setDataVenda() {
         const dataInput = document.getElementById('dataVenda')
         if (dataInput) {
-            // Usar a função que retorna a data/hora formatada para exibição
-            dataInput.value = dateTime.getAgoraFormatado()
+            const agora = new Date()
+            
+            // Formatar para datetime-local: YYYY-MM-DDTHH:MM
+            const ano = agora.getFullYear()
+            const mes = String(agora.getMonth() + 1).padStart(2, '0')
+            const dia = String(agora.getDate()).padStart(2, '0')
+            const horas = String(agora.getHours()).padStart(2, '0')
+            const minutos = String(agora.getMinutes()).padStart(2, '0')
+            
+            dataInput.value = `${ano}-${mes}-${dia}T${horas}:${minutos}`
+            
+            console.log('Data da venda definida:', dataInput.value)
         }
     }
     
@@ -1127,7 +1137,7 @@ class VendasModule {
         this.atualizarTotais()
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
-        this.setDataVenda()
+        this.setDataVenda()  // Isso já preenche com a data/hora atual
         this.descricaoPendente = ''
         
         // Resetar forma de pagamento
@@ -1158,7 +1168,7 @@ class VendasModule {
         this.atualizarTotais()
         this.numeroVenda = this.gerarNumeroVenda()
         this.setNumeroVenda()
-        this.setDataVenda()
+        this.setDataVenda()  // Preenche com data/hora atual
         this.descricaoPendente = ''
         
         // Resetar forma de pagamento
@@ -1180,8 +1190,20 @@ class VendasModule {
         const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || 'Pendente'
         const descricaoPendente = formaPagamento === 'Pendente' ? this.descricaoPendente : null
         
+        // Obter data do campo datetime-local e converter para ISO
+        const dataVendaInput = document.getElementById('dataVenda')
+        let dataVenda = new Date().toISOString()
+        
+        if (dataVendaInput && dataVendaInput.value) {
+            // Converter o valor do datetime-local (YYYY-MM-DDTHH:MM) para ISO
+            const dataLocal = new Date(dataVendaInput.value)
+            dataVenda = dataLocal.toISOString()
+        }
+        
+        console.log('Data da venda a ser salva:', dataVenda)
+        
         const venda = {
-            data_venda: new Date().toISOString(),
+            data_venda: dataVenda,
             numero_venda: this.numeroVenda,
             codigo_produto: primeiroItem.codigo_produto,
             descricao_produto: primeiroItem.descricao_produto,
@@ -1192,12 +1214,10 @@ class VendasModule {
             desconto: this.itensVenda.reduce((sum, item) => sum + item.desconto, 0),
             valor_total: this.itensVenda.reduce((sum, item) => sum + item.valor_total, 0),
             forma_pagamento: formaPagamento,
-            descricao_pendente: descricaoPendente  // Adicionar descrição
+            descricao_pendente: descricaoPendente
         }
         
-        console.log('Data da venda a ser salva (UTC):', venda.data_venda)
-        
-        // Preparar itens com forma_pagamento
+        // Preparar itens
         const itensParaSalvar = this.itensVenda.map(item => ({
             produto_id: item.produto_id,
             codigo_produto: item.codigo_produto,
@@ -1209,7 +1229,8 @@ class VendasModule {
             valor_compra: item.valor_compra || 0,
             desconto: item.desconto || 0,
             valor_total: item.valor_total,
-            forma_pagamento: formaPagamento
+            forma_pagamento: formaPagamento,
+            descricao_pendente: descricaoPendente
         }))
         
         const { data, error } = await supabaseService.saveVenda(venda, itensParaSalvar)
@@ -1297,8 +1318,17 @@ class VendasModule {
         const formaPagamento = document.getElementById('formaPagamentoVenda')?.value || this.vendaEditando.forma_pagamento || 'Pendente'
         const descricaoPendente = formaPagamento === 'Pendente' ? this.descricaoPendente : null
         
+        // Obter data do campo datetime-local
+        const dataVendaInput = document.getElementById('dataVenda')
+        let dataVenda = this.vendaEditando.data_venda
+        
+        if (dataVendaInput && dataVendaInput.value) {
+            const dataLocal = new Date(dataVendaInput.value)
+            dataVenda = dataLocal.toISOString()
+        }
+        
         const vendaAtualizada = {
-            data_venda: this.vendaEditando.data_venda,
+            data_venda: dataVenda,
             numero_venda: this.numeroVenda,
             codigo_produto: primeiroItem.codigo_produto,
             descricao_produto: primeiroItem.descricao_produto,
@@ -1311,8 +1341,6 @@ class VendasModule {
             forma_pagamento: formaPagamento,
             descricao_pendente: descricaoPendente
         }
-        
-        console.log('Atualizando venda:', vendaAtualizada)
         
         await supabaseService.updateVenda(this.vendaEditando.id, vendaAtualizada)
         
@@ -1376,8 +1404,18 @@ class VendasModule {
             this.numeroVenda = venda.numero_venda
             this.setNumeroVenda()
             
-            // ALTERNAR BOTÕES para modo edição
-            this.alternarBotoesVenda(true)
+            // Preencher data da venda no campo datetime-local
+            const dataVendaInput = document.getElementById('dataVenda')
+            if (dataVendaInput && venda.data_venda) {
+                const data = new Date(venda.data_venda)
+                const ano = data.getFullYear()
+                const mes = String(data.getMonth() + 1).padStart(2, '0')
+                const dia = String(data.getDate()).padStart(2, '0')
+                const horas = String(data.getHours()).padStart(2, '0')
+                const minutos = String(data.getMinutes()).padStart(2, '0')
+                
+                dataVendaInput.value = `${ano}-${mes}-${dia}T${horas}:${minutos}`
+            }
             
             // Definir forma de pagamento no select
             const formaPagamentoSelect = document.getElementById('formaPagamentoVenda')
@@ -1386,7 +1424,6 @@ class VendasModule {
                 this.formaPagamento = venda.forma_pagamento || 'Pendente'
                 validators.clearValidationError(formaPagamentoSelect)
                 
-                // Mostrar/esconder campo de descrição e preencher
                 this.toggleDescricaoPendente(venda.forma_pagamento)
                 if (venda.forma_pagamento === 'Pendente' && venda.descricao_pendente) {
                     this.descricaoPendente = venda.descricao_pendente
@@ -1418,6 +1455,7 @@ class VendasModule {
             
             this.renderizarItensVenda()
             this.atualizarTotais()
+            this.alternarBotoesVenda(true)
             
             this.showSuccess('Venda carregada para edição')
             
